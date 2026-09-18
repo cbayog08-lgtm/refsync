@@ -1,0 +1,37 @@
+{
+  "summary": "Backend: 23/23 pytest tests pass (added coverage for category + half_duration_min, status=finished filter with desc ordering, double_yellow reason persistence, and finish-does-not-delete-events). Frontend: index shows 5 categories in round watch UI; tapping Cadete creates a match with category='Cadete' & half_duration_min=40 and navigates to /match; timer & category label render correctly. Double-yellow logic: 2nd yellow on same dorsal+team triggers 'EXPULSIÓN Doble amarilla · #7' overlay AND persists a red event with reason='double_yellow' (verified via GET events). Direct red card also fires 'EXPULSIÓN' overlay. 5th red card on same team fires 'PARTIDO SUSPENDIDO' overlay ('LOCAL: mínimo de jugadores (5 expulsiones)'), notice-dismiss closes it. Historial lists finished matches and history-row-<id> navigates to acta; acta shows correct score '1 - 0', event rows with minute labels (e.g. \"1'\") and 'GOL · #5', acta-export button visible, acta-home returns to index. CRITICAL BUG: pressing end-match-button on /summary does NOT navigate to /acta/<id>; it goes back to / (index). All other requirements (backend finish + history + acta reachable via history) work, so the acta is still accessible via HISTORIAL, but the direct post-finish navigation flow is broken.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "FIN DE PARTIDO -> /acta/<id>",
+        "issue": "Pressing end-match-button lands on / instead of /acta/<id>. RCA: match.tsx has useEffect that does router.replace('/') whenever matchId becomes null. finishAndArchive() awaits api.finishMatch then setMatchId(null) — the still-mounted /match screen's effect fires and replaces the route to '/' BEFORE summary's handleEnd can await finishAndArchive's return and call router.replace(`/acta/${id}`). Match is correctly finalized on the backend and appears in HISTORIAL, but the immediate acta navigation is overridden.",
+        "affected_testIDs": ["end-match-button", "acta-score", "acta-export"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix FIN DE PARTIDO navigation. Recommended: in /app/frontend/app/summary.tsx handleEnd, navigate FIRST then finalize state — e.g. `const id = matchId; router.replace(id ? \"/acta/\" + id : \"/\"); await finishAndArchive();` (capture matchId from context before it is reset). Alternative: guard match.tsx effect (only redirect when the current pathname is /match) or move the matchId reset out of finishAndArchive and do it explicitly from the caller after navigation. Verify: after end-match-button URL is /acta/<matchId> and acta-score renders finalized score."
+  ],
+  "critical_code_review_comments": [
+    "Race between match.tsx redirect effect and summary.handleEnd router.replace causes the FIN DE PARTIDO -> acta navigation to break (see integration_issues). This is the only functional bug found.",
+    "acta/[id].tsx uses two separate useQuery calls with the same enabled: !!id — fine, but during initial render before events load the empty-state 'Sin eventos' briefly shows. Not a bug; brief visual flash only when opening from history-row on slow networks.",
+    "MatchContext.finishAndArchive swallows api.finishMatch errors silently (catch {}). Fine for offline UX but note if reliability matters."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "~92% (1 navigation bug)"},
+  "seed_data_creation": "Tests create their own matches/events per test; no cleanup required (unique UUIDs).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All new spec items validated: category persistence (backend 5 categories parametrized + frontend Cadete verified), status=finished filter with desc ordering (backend), events preserved after finish (backend + verified via GET), double_yellow reason persisted (backend + frontend expulsion overlay + GET verify), 5-expulsion suspension overlay verified end-to-end, historial + acta score + acta-export + minute label render correctly when reached via HISTORIAL. Only the direct post-end-match navigation to acta is broken due to a race between match.tsx's redirect effect and summary.handleEnd's router.replace. After main agent fixes summary.tsx (navigate first, then finalize), re-run: create match, add goal, /summary, end-match-button, assert URL matches /acta/<id> and acta-score reflects the finalized score.",
+  "rca_of_issue": "match.tsx has: useEffect(() => { if (!matchId) router.replace('/'); }, [matchId, router]). In summary.handleEnd: `const id = await finishAndArchive(); if (id) router.replace('/acta/'+id);`. finishAndArchive awaits api.finishMatch then setMatchId(null). Since /match is still mounted (stack), its effect fires as soon as React commits the null matchId — replacing the route to '/'. Then summary resumes and calls router.replace('/acta/'+id) but by then a subsequent render/paint of match's effect (or the promise resolution timing on web) results in '/' being the last replace. Reproduction: pick any category -> add any event -> open summary -> press end-match-button -> URL becomes '/' instead of '/acta/<id>'. Mitigation: navigate BEFORE nulling matchId — e.g. capture matchId in the caller and router.replace to acta first, or gate the match.tsx redirect on pathname === '/match'."
+}
