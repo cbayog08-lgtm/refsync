@@ -5,7 +5,7 @@ import { ArrowsLeftRight, Cardholder, SoccerBall } from "phosphor-react-native";
 import { EventDto } from "@/src/api";
 import { fonts } from "@/src/fonts";
 import { makeStyles, useTheme } from "@/src/theme";
-import { minuteLabel, teamName } from "@/src/utils/format";
+import { minuteLabel, reasonSuffix, teamName } from "@/src/utils/format";
 
 type Props = {
   item: EventDto;
@@ -29,7 +29,9 @@ export function EventRow({ item, homeColor, awayColor }: Props) {
     const isRed = item.card_color === "red";
     icon = <Cardholder size={20} color={isRed ? colors.error : colors.warning} weight="fill" />;
     const dbl = item.reason === "double_yellow";
-    title = isRed ? `ROJA${dbl ? " (2ª AM.)" : ""} · #${item.dorsal}` : `AMARILLA · #${item.dorsal}`;
+    title = isRed
+      ? `ROJA${dbl ? " (2ª AM.)" : ""} · #${item.dorsal}${reasonSuffix(item)}`
+      : `AMARILLA · #${item.dorsal}${reasonSuffix(item)}`;
     detailColor = isRed ? colors.error : colors.warning;
   } else {
     icon = <ArrowsLeftRight size={20} color={colors.info} weight="bold" />;

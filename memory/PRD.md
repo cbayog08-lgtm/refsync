@@ -39,7 +39,15 @@ App prototipo tipo smartwatch para árbitros de fútbol. Formato reloj REDONDO (
 - P2: Exportar acta a PDF y compartir por email.
 - P2: Segunda parte / descanso con reinicio de reloj de parte.
 
-## Iteración 3 (2026-06)
+## Iteración 4 (2026-06)
+- [x] FIX tiempo añadido: botones +/- funcionales, valor en pastilla amarilla de alto contraste "+N MIN".
+- [x] FIX scroll: resumen, acta e historial a pantalla completa (ListScreen) con scroll fluido, sin recortes.
+- [x] Motivo de tarjeta por siglas (Amarillas AP/PR/JP/DT/C, Rojas DOGSO/JVG/CD/INS) guardado en el acta.
+- [x] Control de expulsados: dorsal expulsado no admite más tarjetas ni entra/sale en cambios.
+- [x] Alineaciones con titulares y reservas; los cambios actualizan el once en campo.
+- [x] Paleta ampliada a 16 colores + nombres de equipo editables; distintivo de color en marcador y selectores.
+- [x] Testing agent: backend 23/23; 8/8 mejoras frontend verdes.
+
 - [x] FIX: pantalla de partido rediseñada en 2 pestañas (Tiempo+Marcador / Acciones) con indicadores tocables y swipe; sin solapamientos.
 - [x] Configuración pre-partido `setup`: nombre + color (paleta de 8) para Local y Visitante; distintivo de color en marcador y selectores.
 - [x] Normativa de cambios por categoría: Alevín/Infantil/Cadete ilimitados; Juvenil/Aficionado máx 5 cambios / 3 ventanas con avisos (6º cambio, 4ª ventana).

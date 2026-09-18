@@ -1,12 +1,13 @@
 import React from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { CaretLeft } from "phosphor-react-native";
 
 import { EventRow } from "@/src/components/event-row";
-import { WatchScreen } from "@/src/components/watch-screen";
+import { ListScreen } from "@/src/components/list-screen";
 import { useMatch } from "@/src/context/match";
 import { useEvents } from "@/src/hooks/events";
 import { fonts } from "@/src/fonts";
@@ -19,6 +20,7 @@ export default function SummaryScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { matchId, teams, finishAndArchive } = useMatch();
   const { data: events = [], isLoading } = useEvents(matchId);
 
@@ -32,10 +34,10 @@ export default function SummaryScreen() {
   };
 
   return (
-    <WatchScreen padScale={0.08}>
+    <ListScreen>
       <View style={styles.header}>
         <Pressable testID="summary-back" onPress={() => router.back()} hitSlop={12} style={styles.back}>
-          <CaretLeft size={22} color={colors.onSurface} weight="bold" />
+          <CaretLeft size={24} color={colors.onSurface} weight="bold" />
         </Pressable>
         <View style={styles.scoreWrap}>
           <View style={styles.teamMini}>
@@ -59,7 +61,7 @@ export default function SummaryScreen() {
         )}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
         contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
         ListEmptyComponent={
           !isLoading ? (
             <View style={styles.empty} testID="summary-empty">
@@ -70,14 +72,16 @@ export default function SummaryScreen() {
         }
       />
 
-      <Pressable
-        testID="end-match-button"
-        onPress={handleEnd}
-        style={({ pressed }) => [styles.endBtn, { backgroundColor: colors.error }, pressed && styles.pressed]}
-      >
-        <Text style={[styles.endText, { color: colors.onError }]}>FIN DE PARTIDO</Text>
-      </Pressable>
-    </WatchScreen>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <Pressable
+          testID="end-match-button"
+          onPress={handleEnd}
+          style={({ pressed }) => [styles.endBtn, { backgroundColor: colors.error }, pressed && styles.pressed]}
+        >
+          <Text style={[styles.endText, { color: colors.onError }]}>FIN DE PARTIDO</Text>
+        </Pressable>
+      </View>
+    </ListScreen>
   );
 }
 
@@ -86,36 +90,40 @@ const useStyles = makeStyles((colors) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  back: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  back: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
   scoreWrap: { alignItems: "center", flex: 1 },
-  teamMini: { flexDirection: "row", alignItems: "center", gap: 5, maxWidth: 150 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  teamMini: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: 220 },
+  dot: { width: 12, height: 12, borderRadius: 3 },
   miniName: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 11,
+    fontSize: 12,
     color: colors.onSurfaceTertiary,
     flexShrink: 1,
   },
   score: {
     fontFamily: fonts.display,
-    fontSize: 30,
+    fontSize: 40,
     color: colors.onSurface,
-    lineHeight: 32,
+    lineHeight: 44,
   },
-  listContent: { paddingVertical: 4, flexGrow: 1 },
+  listContent: { paddingVertical: 4, paddingBottom: 12 },
   sep: { height: 1, backgroundColor: colors.divider },
-  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 30, gap: 14 },
-  emptyImg: { width: 110, height: 110, borderRadius: 55, opacity: 0.5 },
-  emptyText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.onSurfaceTertiary },
+  empty: { alignItems: "center", justifyContent: "center", paddingVertical: 50, gap: 16 },
+  emptyImg: { width: 140, height: 140, borderRadius: 70, opacity: 0.5 },
+  emptyText: { fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.onSurfaceTertiary },
+  footer: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.divider,
+  },
   endBtn: {
-    marginTop: 6,
-    height: 54,
+    height: 58,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   pressed: { opacity: 0.8 },
-  endText: { fontFamily: fonts.display, fontSize: 26, letterSpacing: 1.5 },
+  endText: { fontFamily: fonts.display, fontSize: 30, letterSpacing: 1.5 },
 }));

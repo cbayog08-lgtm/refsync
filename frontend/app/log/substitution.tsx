@@ -11,8 +11,10 @@ import { PlayerGrid } from "@/src/components/player-grid";
 import { TeamSelect } from "@/src/components/team-select";
 import { WatchScreen } from "@/src/components/watch-screen";
 import { useMatch } from "@/src/context/match";
+import { useEvents } from "@/src/hooks/events";
 import { fonts } from "@/src/fonts";
 import { makeStyles, useTheme } from "@/src/theme";
+import { expelledSet } from "@/src/utils/format";
 
 type FieldKey = "out" | "in";
 
@@ -20,7 +22,8 @@ export default function SubstitutionScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
-  const { logSub, lineupEnabled, lineups } = useMatch();
+  const { matchId, logSub, lineupEnabled, lineups } = useMatch();
+  const { data: events = [] } = useEvents(matchId);
 
   const [team, setTeam] = useState<Team>("home");
   const [field, setField] = useState<FieldKey>("out");
@@ -28,9 +31,17 @@ export default function SubstitutionScreen() {
   const [inn, setInn] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const expelled = expelledSet(events, team);
   const value = field === "out" ? out : inn;
   const setValue = field === "out" ? setOut : setInn;
-  const canConfirm = out.length > 0 && inn.length > 0 && !saving;
+
+  const outNum = out ? parseInt(out, 10) : null;
+  const innNum = inn ? parseInt(inn, 10) : null;
+  const outExpelled = outNum != null && expelled.has(outNum);
+  const innExpelled = innNum != null && expelled.has(innNum);
+
+  const canConfirm =
+    out.length > 0 && inn.length > 0 && !saving && !outExpelled && !innExpelled;
 
   const changeTeam = (t: Team) => {
     setTeam(t);
@@ -41,17 +52,17 @@ export default function SubstitutionScreen() {
   };
 
   const confirm = async () => {
-    if (!canConfirm) return;
+    if (!canConfirm || outNum == null || innNum == null) return;
     setSaving(true);
-    await logSub({ team, out: parseInt(out, 10), inn: parseInt(inn, 10) });
+    await logSub({ team, out: outNum, inn: innNum });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
   };
 
   const players = lineupEnabled
-    ? field === "out"
-      ? lineups[team].onField
-      : lineups[team].bench
+    ? (field === "out" ? lineups[team].onField : lineups[team].bench).filter(
+        (d) => !expelled.has(d),
+      )
     : [];
 
   return (
@@ -80,12 +91,15 @@ export default function SubstitutionScreen() {
               <Text style={styles.fieldNum}>{inn ? `#${inn}` : "--"}</Text>
             </Pressable>
           </View>
+          {outExpelled || innExpelled ? (
+            <Text style={styles.warn}>Jugador expulsado, no disponible</Text>
+          ) : null}
           {lineupEnabled ? (
             <PlayerGrid
               players={players}
               selected={value ? parseInt(value, 10) : null}
               onSelect={(n) => setValue(String(n))}
-              emptyLabel={field === "out" ? "Sin titulares" : "Sin banca"}
+              emptyLabel={field === "out" ? "Sin titulares" : "Sin reservas"}
             />
           ) : (
             <Numpad value={value} onChange={setValue} />
@@ -133,6 +147,12 @@ const useStyles = makeStyles((colors) => ({
     fontSize: 26,
     lineHeight: 28,
     color: colors.onSurface,
+  },
+  warn: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.error,
+    textAlign: "center",
   },
   confirm: {
     height: 52,

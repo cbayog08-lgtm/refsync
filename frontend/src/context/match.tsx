@@ -73,7 +73,7 @@ type MatchContextValue = {
   incAdded: () => void;
   decAdded: () => void;
   finishAndArchive: () => Promise<string | null>;
-  logCard: (input: { team: Team; dorsal: number; color: CardColor }) => Promise<void>;
+  logCard: (input: { team: Team; dorsal: number; color: CardColor; reason?: string }) => Promise<void>;
   logSub: (input: { team: Team; out: number; inn: number }) => Promise<void>;
   dismissNotice: () => void;
 };
@@ -82,7 +82,7 @@ const DEFAULT_TEAMS: TeamsConfig = {
   homeName: "LOCAL",
   awayName: "VISITANTE",
   homeColor: "#EF4444",
-  awayColor: "#3B82F6",
+  awayColor: "#1E3A8A",
 };
 
 const MatchContext = createContext<MatchContextValue | null>(null);
@@ -105,7 +105,7 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
     homeName: "LOCAL",
     awayName: "VISITANTE",
     homeColor: "#EF4444",
-    awayColor: "#3B82F6",
+    awayColor: "#1E3A8A",
     lineupEnabled: false,
   });
 
@@ -214,7 +214,7 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
   }, [status, halfMin, mainMs, addedMs]);
 
   const logCard = useCallback(
-    async ({ team, dorsal, color }: { team: Team; dorsal: number; color: CardColor }) => {
+    async ({ team, dorsal, color, reason }: { team: Team; dorsal: number; color: CardColor; reason?: string }) => {
       if (!matchId) return;
       const { minute, added } = captureMinute();
       const existing = await api.getEvents(matchId);
@@ -226,6 +226,7 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
         team,
         dorsal,
         card_color: color,
+        reason,
       });
 
       const priorYellows = existing.filter(

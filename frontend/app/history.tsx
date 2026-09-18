@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CaretLeft, CaretRight, ClockCounterClockwise } from "phosphor-react-native";
 
 import { api } from "@/src/api";
-import { WatchScreen } from "@/src/components/watch-screen";
+import { ListScreen } from "@/src/components/list-screen";
 import { fonts } from "@/src/fonts";
 import { makeStyles, useTheme } from "@/src/theme";
 import { formatDate } from "@/src/utils/format";
@@ -21,7 +21,7 @@ export default function HistoryScreen() {
   });
 
   return (
-    <WatchScreen padScale={0.08}>
+    <ListScreen>
       <View style={styles.header}>
         <Pressable testID="history-back" onPress={() => router.back()} hitSlop={12} style={styles.back}>
           <CaretLeft size={22} color={colors.onSurface} weight="bold" />
@@ -64,7 +64,7 @@ export default function HistoryScreen() {
           ) : null
         }
       />
-    </WatchScreen>
+    </ListScreen>
   );
 }
 

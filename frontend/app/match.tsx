@@ -142,15 +142,18 @@ export default function MatchScreen() {
               </Pressable>
 
               <View style={styles.addedStepper}>
-                <Pressable testID="added-minus" onPress={decAdded} style={styles.stepBtn}>
-                  <Minus size={18} color={colors.onSurface} weight="bold" />
+                <Pressable testID="added-minus" onPress={decAdded} style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}>
+                  <Minus size={20} color={colors.onSurface} weight="bold" />
                 </Pressable>
                 <View style={styles.addedValue}>
                   <Text style={styles.addedLabel}>AÑADIDO</Text>
-                  <Text testID="added-announced" style={styles.addedNum}>{`+${announcedAddedMin}'`}</Text>
+                  <View style={styles.addedPill}>
+                    <Text testID="added-announced" style={styles.addedNum}>{`+${announcedAddedMin}`}</Text>
+                    <Text style={styles.addedUnit}>MIN</Text>
+                  </View>
                 </View>
-                <Pressable testID="added-plus" onPress={incAdded} style={styles.stepBtn}>
-                  <Plus size={18} color={colors.onSurface} weight="bold" />
+                <Pressable testID="added-plus" onPress={incAdded} style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}>
+                  <Plus size={20} color={colors.onSurface} weight="bold" />
                 </Pressable>
               </View>
             </View>
@@ -305,16 +308,19 @@ const useStyles = makeStyles((colors) => ({
     gap: 12,
   },
   stepBtn: {
-    width: 44,
-    height: 40,
-    borderRadius: 10,
+    width: 48,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
     alignItems: "center",
     justifyContent: "center",
   },
   addedValue: {
     alignItems: "center",
-    minWidth: 70,
+    minWidth: 92,
+    gap: 3,
   },
   addedLabel: {
     fontFamily: fonts.bodyMedium,
@@ -322,11 +328,27 @@ const useStyles = makeStyles((colors) => ({
     letterSpacing: 1.5,
     color: colors.onSurfaceTertiary,
   },
+  addedPill: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+    backgroundColor: colors.brandPrimary,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 38,
+    justifyContent: "center",
+  },
   addedNum: {
     fontFamily: fonts.display,
-    fontSize: 26,
-    lineHeight: 28,
-    color: colors.onSurface,
+    fontSize: 28,
+    lineHeight: 34,
+    color: colors.onBrandPrimary,
+  },
+  addedUnit: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    letterSpacing: 0.5,
+    color: colors.onBrandPrimary,
   },
   actionsCol: {
     width: "100%",

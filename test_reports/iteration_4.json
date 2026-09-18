@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 4 fully PASS. Backend 23/23 pytest green (existing suite covers Match CRUD, category+half_duration_min, card reason field via double_yellow, event ordering, finish flow — new siglas reasons are just strings the backend accepts without validation change so no contract change confirmed). Frontend E2E at 390x844: (1) 16-color palette rendered on both home-color-* and away-color-* (verified 16 swatches each); custom team names RAYO/ATLETI persist; colored dots (red/navy) shown on scoreboard, on TeamSelect (RAYO red dot / ATLETI blue dot in card+sub screens), and on summary+acta headers. (2) added-plus/minus stepper works: +0 -> +3 with 3 taps, clamps at +0 after 5 decrements, high-contrast yellow '+N MIN' pill visible. (3) Card flow now has THREE steps (dorsal -> card-next-button -> card-yellow-button/card-red-button -> reason-<CODE>); Yellow reasons AP/PR/JP/DT/C all render; Red reasons DOGSO/JVG/CD/INS all render; picking reason-AP saves and returns to match; picking reason-DOGSO on a red gives EXPULSIÓN overlay ('Tarjeta roja · #9'). (4) Expulsion control: after red to #9 via reason-DOGSO, opening TARJETA again and typing 9 -> card-next-button is disabled (aria-disabled=true, disabled prop true) and 'Jugador ya expulsado' warning renders. (5) Lineup mode: lineup-toggle ON routes to /lineup; add-starter builds titulares (7,9,10 for RAYO; 11 for ATLETI), add-bench adds 15 to bench; COMENZAR routes to /match. (6) Substitution 7 OUT / 15 IN in lineup mode: onField chips before=[7,9,10] -> after=[9,10,15], confirming lineup mutation; TARJETA reopened shows player-chip-9,10,15 only. (7) Double yellow: two yellows to #10 (PR then C) triggers automatic red with reason=double_yellow AND EXPULSIÓN overlay 'Doble amarilla · #10'; summary shows 'AMARILLA · #10 · PR', 'AMARILLA · #10 · C' and 'ROJA (2ª AM.) · #10'. (8) Summary screen is full rectangular (not clipped) with FIN DE PARTIDO button at bottom; end-match-button navigates to /acta/<uuid>. (9) Acta screen renders as rectangular full screen with acta-home, acta-export, acta-score, team names+color dots, and per-event reason siglas ('AMARILLA · #10 · PR', 'ROJA (2ª AM.)'). Circular WatchScreen intentionally kept on interactive screens (index/setup/lineup/match/log/*) — not flagged per agent context note.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py POST /matches returns 200 instead of 201 for creation semantics (non-blocking, pre-existing).",
+    "backend Event.reason accepts arbitrary string; siglas (AP/PR/JP/DT/C/DOGSO/JVG/CD/INS) are not enum-validated server-side. Frontend is the sole source of truth. Consider a Literal union on the backend for defense-in-depth (non-blocking).",
+    "context/match.tsx logSub reads existing events via GET BEFORE the POST to count subsSoFar; still eventual-consistent under race but adequate for current single-actor watch app (pre-existing note from iteration 3).",
+    "context/match.tsx expulsion check uses expelledSet(events, team) computed from useEvents(matchId) cache; ok because logCard invalidates ['events', matchId] after every card, but a brief stale window may exist right after posting (visible only if user re-taps within ms). Acceptable UX."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% (all 8 spec items in review_request)"},
+  "seed_data_creation": "Each pytest test creates its own match+events with fresh UUIDs; no cleanup needed. Frontend E2E creates disposable matches (RAYO vs ATLETI Aficionado + RAYO vs ATLETI Juvenil).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 4 fully verified. Regressions to keep: (a) 16-swatch palette (home-color-<key> and away-color-<key>, 16 keys defined in /app/frontend/src/jerseys.ts); (b) 3-step card flow select->color->reason with testIDs reason-<CODE> for AP/PR/JP/DT/C (yellow) and DOGSO/JVG/CD/INS (red); (c) expulsion block: after red event, card-next-button disabled with 'Jugador ya expulsado' warning in numpad mode, and PlayerGrid filters expelled dorsals in lineup mode; (d) double_yellow auto-red preserved from prior iterations; (e) sub in lineup mode mutates lineups.onField (out removed, in appended); (f) summary+acta are ListScreen (rectangular, full scroll) while match/log are WatchScreen (circular, intentional).",
+  "rca_of_issue": "N/A — no issues found this iteration."
+}

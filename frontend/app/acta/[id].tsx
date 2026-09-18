@@ -7,10 +7,10 @@ import { Export, House } from "phosphor-react-native";
 
 import { api, EventDto } from "@/src/api";
 import { EventRow } from "@/src/components/event-row";
-import { WatchScreen } from "@/src/components/watch-screen";
+import { ListScreen } from "@/src/components/list-screen";
 import { fonts } from "@/src/fonts";
 import { makeStyles, useTheme } from "@/src/theme";
-import { formatDate, minuteLabel } from "@/src/utils/format";
+import { formatDate, minuteLabel, reasonSuffix } from "@/src/utils/format";
 
 export default function ActaScreen() {
   const styles = useStyles();
@@ -44,7 +44,7 @@ export default function ActaScreen() {
     if (e.type === "goal") return `${m}  GOL  #${e.dorsal}  (${teamNameOf(e.team)})`;
     if (e.type === "card") {
       const isRed = e.card_color === "red";
-      const dbl = e.reason === "double_yellow" ? " (2a amarilla)" : "";
+      const dbl = e.reason === "double_yellow" ? " (2a amarilla)" : reasonSuffix(e);
       return `${m}  ${isRed ? "ROJA" : "AMARILLA"}${dbl}  #${e.dorsal}  (${teamNameOf(e.team)})`;
     }
     return `${m}  CAMBIO  sale #${e.dorsal_out} entra #${e.dorsal_in}  (${teamNameOf(e.team)})`;
@@ -69,7 +69,7 @@ export default function ActaScreen() {
   };
 
   return (
-    <WatchScreen padScale={0.08}>
+    <ListScreen>
       <View style={styles.header}>
         <Pressable testID="acta-home" onPress={() => router.replace("/")} hitSlop={12} style={styles.iconBtn}>
           <House size={20} color={colors.onSurface} weight="bold" />
@@ -103,10 +103,10 @@ export default function ActaScreen() {
         )}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
         contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator
         ListEmptyComponent={<Text style={styles.emptyText}>Sin eventos</Text>}
       />
-    </WatchScreen>
+    </ListScreen>
   );
 }
 
@@ -117,9 +117,9 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: "space-between",
   },
   iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: colors.surfaceSecondary,
     alignItems: "center",
     justifyContent: "center",
@@ -127,32 +127,32 @@ const useStyles = makeStyles((colors) => ({
   center: { alignItems: "center" },
   title: {
     fontFamily: fonts.display,
-    fontSize: 24,
+    fontSize: 28,
     letterSpacing: 1.5,
     color: colors.onSurface,
   },
-  meta: { fontFamily: fonts.body, fontSize: 11, color: colors.onSurfaceTertiary },
+  meta: { fontFamily: fonts.body, fontSize: 12, color: colors.onSurfaceTertiary },
   scoreRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    marginVertical: 4,
+    gap: 12,
+    marginVertical: 8,
   },
-  teamMini: { flexDirection: "row", alignItems: "center", gap: 5, maxWidth: 110 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  teamMini: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: 130 },
+  dot: { width: 12, height: 12, borderRadius: 3 },
   miniName: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 11,
+    fontSize: 12,
     color: colors.onSurfaceTertiary,
     flexShrink: 1,
   },
   score: {
     fontFamily: fonts.display,
-    fontSize: 34,
+    fontSize: 40,
     color: colors.onSurface,
   },
-  listContent: { paddingVertical: 4, flexGrow: 1 },
+  listContent: { paddingVertical: 4, paddingBottom: 24 },
   sep: { height: 1, backgroundColor: colors.divider },
   emptyText: {
     fontFamily: fonts.bodyMedium,
