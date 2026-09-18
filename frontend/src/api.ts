@@ -19,6 +19,8 @@ export type MatchDto = {
   id: string;
   home_team: string;
   away_team: string;
+  home_color: string;
+  away_color: string;
   category: string;
   half_duration_min: number;
   status: string;
@@ -53,12 +55,18 @@ export type EventInput = {
   reason?: string;
 };
 
+export type MatchCreateInput = {
+  home_team: string;
+  away_team: string;
+  home_color: string;
+  away_color: string;
+  category: string;
+  half_duration_min: number;
+};
+
 export const api = {
-  createMatch: (category: string, halfMin: number) =>
-    request<MatchDto>("/matches", {
-      method: "POST",
-      body: JSON.stringify({ category, half_duration_min: halfMin }),
-    }),
+  createMatch: (body: MatchCreateInput) =>
+    request<MatchDto>("/matches", { method: "POST", body: JSON.stringify(body) }),
   listMatches: (status?: string) =>
     request<MatchDto[]>(`/matches${status ? `?status=${status}` : ""}`),
   getMatch: (id: string) => request<MatchDto>(`/matches/${id}`),

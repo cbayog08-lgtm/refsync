@@ -43,6 +43,13 @@ export default function HistoryScreen() {
           >
             <View style={styles.rowLeft}>
               <Text style={styles.rowCat}>{item.category}</Text>
+              <View style={styles.teamsRow}>
+                <View style={[styles.dot, { backgroundColor: item.home_color }]} />
+                <Text style={styles.teamsText} numberOfLines={1}>
+                  {item.home_team} vs {item.away_team}
+                </Text>
+                <View style={[styles.dot, { backgroundColor: item.away_color }]} />
+              </View>
               <Text style={styles.rowDate}>{formatDate(item.finished_at ?? item.created_at)}</Text>
             </View>
             <CaretRight size={20} color={colors.onSurfaceTertiary} weight="bold" />
@@ -92,13 +99,30 @@ const useStyles = makeStyles((colors) => ({
     backgroundColor: colors.surfaceSecondary,
     borderRadius: 14,
     paddingHorizontal: 16,
-    height: 60,
+    paddingVertical: 10,
   },
   pressed: {
     opacity: 0.7,
   },
   rowLeft: {
     flex: 1,
+    gap: 2,
+  },
+  teamsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  teamsText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: colors.onSurface,
+    flexShrink: 1,
   },
   rowCat: {
     fontFamily: fonts.bodyBold,

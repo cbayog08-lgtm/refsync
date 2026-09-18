@@ -19,7 +19,7 @@ export default function SummaryScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
-  const { matchId, finishAndArchive } = useMatch();
+  const { matchId, teams, finishAndArchive } = useMatch();
   const { data: events = [], isLoading } = useEvents(matchId);
 
   const homeGoals = events.filter((e) => e.type === "goal" && e.team === "home").length;
@@ -28,8 +28,7 @@ export default function SummaryScreen() {
   const handleEnd = async () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     const id = await finishAndArchive();
-    if (id) router.replace(`/acta/${id}`);
-    else router.replace("/");
+    router.replace(id ? `/acta/${id}` : "/");
   };
 
   return (
@@ -39,8 +38,15 @@ export default function SummaryScreen() {
           <CaretLeft size={22} color={colors.onSurface} weight="bold" />
         </Pressable>
         <View style={styles.scoreWrap}>
-          <Text style={styles.title}>RESUMEN</Text>
-          <Text style={styles.score}>{homeGoals} - {awayGoals}</Text>
+          <View style={styles.teamMini}>
+            <View style={[styles.dot, { backgroundColor: teams.homeColor }]} />
+            <Text style={styles.miniName} numberOfLines={1}>{teams.homeName}</Text>
+          </View>
+          <Text testID="summary-score" style={styles.score}>{homeGoals} - {awayGoals}</Text>
+          <View style={styles.teamMini}>
+            <View style={[styles.dot, { backgroundColor: teams.awayColor }]} />
+            <Text style={styles.miniName} numberOfLines={1}>{teams.awayName}</Text>
+          </View>
         </View>
         <View style={styles.back} />
       </View>
@@ -48,7 +54,9 @@ export default function SummaryScreen() {
       <FlatList
         data={events}
         keyExtractor={(e) => e.id}
-        renderItem={({ item }) => <EventRow item={item} />}
+        renderItem={({ item }) => (
+          <EventRow item={item} homeColor={teams.homeColor} awayColor={teams.awayColor} />
+        )}
         ItemSeparatorComponent={() => <View style={styles.sep} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -80,53 +88,27 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  back: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  scoreWrap: {
-    alignItems: "center",
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 24,
-    letterSpacing: 1.5,
-    color: colors.onSurface,
+  back: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  scoreWrap: { alignItems: "center", flex: 1 },
+  teamMini: { flexDirection: "row", alignItems: "center", gap: 5, maxWidth: 150 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  miniName: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    color: colors.onSurfaceTertiary,
+    flexShrink: 1,
   },
   score: {
     fontFamily: fonts.display,
-    fontSize: 20,
-    color: colors.onSurfaceTertiary,
-    lineHeight: 22,
+    fontSize: 30,
+    color: colors.onSurface,
+    lineHeight: 32,
   },
-  listContent: {
-    paddingVertical: 4,
-    flexGrow: 1,
-  },
-  sep: {
-    height: 1,
-    backgroundColor: colors.divider,
-  },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 30,
-    gap: 14,
-  },
-  emptyImg: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    opacity: 0.5,
-  },
-  emptyText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    color: colors.onSurfaceTertiary,
-  },
+  listContent: { paddingVertical: 4, flexGrow: 1 },
+  sep: { height: 1, backgroundColor: colors.divider },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 30, gap: 14 },
+  emptyImg: { width: 110, height: 110, borderRadius: 55, opacity: 0.5 },
+  emptyText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.onSurfaceTertiary },
   endBtn: {
     marginTop: 6,
     height: 54,
@@ -134,12 +116,6 @@ const useStyles = makeStyles((colors) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  pressed: {
-    opacity: 0.8,
-  },
-  endText: {
-    fontFamily: fonts.display,
-    fontSize: 26,
-    letterSpacing: 1.5,
-  },
+  pressed: { opacity: 0.8 },
+  endText: { fontFamily: fonts.display, fontSize: 26, letterSpacing: 1.5 },
 }));

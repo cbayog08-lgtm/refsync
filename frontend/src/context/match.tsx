@@ -14,8 +14,42 @@ import { teamName } from "@/src/utils/format";
 
 export type TimerStatus = "stopped" | "running" | "paused";
 
-export type NoticeTone = "expel" | "suspend";
+export type NoticeTone = "expel" | "suspend" | "subs";
 export type Notice = { tone: NoticeTone; title: string; message: string } | null;
+
+export type TeamsConfig = {
+  homeName: string;
+  awayName: string;
+  homeColor: string;
+  awayColor: string;
+};
+
+export type Squad = { onField: number[]; bench: number[] };
+export type Lineups = { home: Squad; away: Squad };
+
+export type Draft = {
+  category: Category | null;
+  homeName: string;
+  awayName: string;
+  homeColor: string;
+  awayColor: string;
+  lineupEnabled: boolean;
+};
+
+export type StartConfig = {
+  category: Category;
+  homeName: string;
+  awayName: string;
+  homeColor: string;
+  awayColor: string;
+  lineupEnabled: boolean;
+  lineups: Lineups;
+};
+
+const emptyLineups = (): Lineups => ({
+  home: { onField: [], bench: [] },
+  away: { onField: [], bench: [] },
+});
 
 type MatchContextValue = {
   matchId: string | null;
@@ -27,12 +61,28 @@ type MatchContextValue = {
   currentMinute: number;
   currentAdded: number;
   notice: Notice;
-  startMatch: (category: Category) => Promise<void>;
+  teams: TeamsConfig;
+  lineupEnabled: boolean;
+  lineups: Lineups;
+  announcedAddedMin: number;
+  draft: Draft;
+  setDraft: (partial: Partial<Draft>) => void;
+  startMatch: (config: StartConfig) => Promise<void>;
   start: () => void;
   toggle: () => void;
+  incAdded: () => void;
+  decAdded: () => void;
   finishAndArchive: () => Promise<string | null>;
   logCard: (input: { team: Team; dorsal: number; color: CardColor }) => Promise<void>;
+  logSub: (input: { team: Team; out: number; inn: number }) => Promise<void>;
   dismissNotice: () => void;
+};
+
+const DEFAULT_TEAMS: TeamsConfig = {
+  homeName: "LOCAL",
+  awayName: "VISITANTE",
+  homeColor: "#EF4444",
+  awayColor: "#3B82F6",
 };
 
 const MatchContext = createContext<MatchContextValue | null>(null);
@@ -46,11 +96,32 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
   const [mainMs, setMainMs] = useState(0);
   const [addedMs, setAddedMs] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
-  const lastRef = useRef(0);
+  const [teams, setTeams] = useState<TeamsConfig>(DEFAULT_TEAMS);
+  const [lineupEnabled, setLineupEnabled] = useState(false);
+  const [lineups, setLineups] = useState<Lineups>(emptyLineups());
+  const [announcedAddedMin, setAnnouncedAddedMin] = useState(0);
+  const [draftState, setDraftState] = useState<Draft>({
+    category: null,
+    homeName: "LOCAL",
+    awayName: "VISITANTE",
+    homeColor: "#EF4444",
+    awayColor: "#3B82F6",
+    lineupEnabled: false,
+  });
 
-  // Ticking loop: main clock while running, added clock while paused.
+  const lastRef = useRef(0);
+  // Substitution "window" tracking (default rule: subs made within the same
+  // paused period count as ONE window; windows close when play resumes).
+  const windowCountRef = useRef<{ home: number; away: number }>({ home: 0, away: 0 });
+  const openWindowRef = useRef<{ home: boolean; away: boolean }>({ home: false, away: false });
+
+  // Ticking loop.
   useEffect(() => {
     if (status === "stopped") return;
+    if (status === "running") {
+      // Play resumed -> close any open substitution windows.
+      openWindowRef.current = { home: false, away: false };
+    }
     lastRef.current = Date.now();
     const iv = setInterval(() => {
       const now = Date.now();
@@ -65,22 +136,45 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(iv);
   }, [status, halfDurationMs]);
 
-  const startMatch = useCallback(async (cat: Category) => {
-    const m = await api.createMatch(cat.label, cat.halfMin);
+  const setDraft = useCallback((partial: Partial<Draft>) => {
+    setDraftState((d) => ({ ...d, ...partial }));
+  }, []);
+
+  const startMatch = useCallback(async (config: StartConfig) => {
+    const m = await api.createMatch({
+      home_team: config.homeName,
+      away_team: config.awayName,
+      home_color: config.homeColor,
+      away_color: config.awayColor,
+      category: config.category.label,
+      half_duration_min: config.category.halfMin,
+    });
     setMatchId(m.id);
-    setCategory(cat);
-    setHalfDurationMs(cat.halfMin * 60 * 1000);
+    setCategory(config.category);
+    setHalfDurationMs(config.category.halfMin * 60 * 1000);
+    setTeams({
+      homeName: config.homeName,
+      awayName: config.awayName,
+      homeColor: config.homeColor,
+      awayColor: config.awayColor,
+    });
+    setLineupEnabled(config.lineupEnabled);
+    setLineups(config.lineups);
     setStatus("stopped");
     setMainMs(0);
     setAddedMs(0);
+    setAnnouncedAddedMin(0);
+    windowCountRef.current = { home: 0, away: 0 };
+    openWindowRef.current = { home: false, away: false };
   }, []);
 
   const start = useCallback(() => setStatus("running"), []);
-
   const toggle = useCallback(
     () => setStatus((s) => (s === "running" ? "paused" : "running")),
     [],
   );
+  const incAdded = useCallback(() => setAnnouncedAddedMin((n) => Math.min(15, n + 1)), []);
+  const decAdded = useCallback(() => setAnnouncedAddedMin((n) => Math.max(0, n - 1)), []);
 
   const finishAndArchive = useCallback(async (): Promise<string | null> => {
     const id = matchId;
@@ -96,6 +190,10 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
     setStatus("stopped");
     setMainMs(0);
     setAddedMs(0);
+    setAnnouncedAddedMin(0);
+    setLineupEnabled(false);
+    setLineups(emptyLineups());
+    setTeams(DEFAULT_TEAMS);
     qc.invalidateQueries({ queryKey: ["matches"] });
     return id;
   }, [matchId, qc]);
@@ -107,13 +205,18 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
     : Math.min(halfMin, Math.floor(mainMs / 60000) + 1);
   const currentAdded = inStoppage ? Math.floor(addedMs / 60000) + 1 : 0;
 
+  const captureMinute = useCallback(() => {
+    const inStop = status === "paused";
+    return {
+      minute: inStop ? halfMin : Math.min(halfMin, Math.floor(mainMs / 60000) + 1),
+      added: inStop ? Math.floor(addedMs / 60000) + 1 : 0,
+    };
+  }, [status, halfMin, mainMs, addedMs]);
+
   const logCard = useCallback(
     async ({ team, dorsal, color }: { team: Team; dorsal: number; color: CardColor }) => {
       if (!matchId) return;
-      const minute = inStoppage ? halfMin : Math.min(halfMin, Math.floor(mainMs / 60000) + 1);
-      const added = inStoppage ? Math.floor(addedMs / 60000) + 1 : 0;
-
-      // Snapshot before writing so we can evaluate double-yellow / suspension.
+      const { minute, added } = captureMinute();
       const existing = await api.getEvents(matchId);
 
       await api.addEvent(matchId, {
@@ -136,7 +239,6 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
       let doubleYellow = false;
 
       if (color === "yellow" && priorYellows >= 1 && !alreadyRed) {
-        // Second yellow => automatic red.
         await api.addEvent(matchId, {
           type: "card",
           minute,
@@ -152,7 +254,6 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
         isExpulsion = true;
       }
 
-      // Total expulsions (red cards) for this team after our additions.
       let teamReds = existing.filter(
         (e) => e.type === "card" && e.card_color === "red" && e.team === team,
       ).length;
@@ -174,7 +275,64 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [matchId, inStoppage, halfMin, mainMs, addedMs, qc],
+    [matchId, captureMinute, qc],
+  );
+
+  const logSub = useCallback(
+    async ({ team, out, inn }: { team: Team; out: number; inn: number }) => {
+      if (!matchId) return;
+      const { minute, added } = captureMinute();
+      const existing = await api.getEvents(matchId);
+
+      await api.addEvent(matchId, {
+        type: "substitution",
+        minute,
+        added_minute: added,
+        team,
+        dorsal_out: out,
+        dorsal_in: inn,
+      });
+
+      // Update lineup: out -> bench, in -> onField.
+      if (lineupEnabled) {
+        setLineups((prev) => {
+          const squad = prev[team];
+          const onField = squad.onField.filter((d) => d !== out).concat(inn);
+          const bench = squad.bench.filter((d) => d !== inn).concat(out);
+          return { ...prev, [team]: { onField, bench } };
+        });
+      }
+
+      qc.invalidateQueries({ queryKey: ["events", matchId] });
+
+      // Substitution limits (Juvenil/Aficionado): 5 subs / 3 windows.
+      if (category && category.maxSubs != null && category.maxWindows != null) {
+        const subsSoFar = existing.filter((e) => e.type === "substitution" && e.team === team).length + 1;
+
+        let openedNewWindow = false;
+        if (!openWindowRef.current[team]) {
+          windowCountRef.current[team] += 1;
+          openWindowRef.current[team] = true;
+          openedNewWindow = true;
+        }
+        const windows = windowCountRef.current[team];
+
+        if (subsSoFar > category.maxSubs) {
+          setNotice({
+            tone: "subs",
+            title: "LÍMITE DE CAMBIOS",
+            message: `${teamName(team)}: ${subsSoFar}º cambio (máx ${category.maxSubs})`,
+          });
+        } else if (openedNewWindow && windows > category.maxWindows) {
+          setNotice({
+            tone: "subs",
+            title: "VENTANAS AGOTADAS",
+            message: `${teamName(team)}: ${windows}ª ventana (máx ${category.maxWindows})`,
+          });
+        }
+      }
+    },
+    [matchId, captureMinute, category, lineupEnabled, qc],
   );
 
   const dismissNotice = useCallback(() => setNotice(null), []);
@@ -189,11 +347,20 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
     currentMinute,
     currentAdded,
     notice,
+    teams,
+    lineupEnabled,
+    lineups,
+    announcedAddedMin,
+    draft: draftState,
+    setDraft,
     startMatch,
     start,
     toggle,
+    incAdded,
+    decAdded,
     finishAndArchive,
     logCard,
+    logSub,
     dismissNotice,
   };
 

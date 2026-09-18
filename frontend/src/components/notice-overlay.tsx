@@ -1,12 +1,12 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
-import { Prohibit, WarningOctagon } from "phosphor-react-native";
+import { Prohibit, WarningCircle, WarningOctagon } from "phosphor-react-native";
 
 import { useMatch } from "@/src/context/match";
 import { fonts } from "@/src/fonts";
 import { makeStyles, useTheme } from "@/src/theme";
 
-// Full-screen automatic notice for expulsions / match suspension.
+// Full-screen automatic notice for expulsions / suspension / substitution limits.
 export function NoticeOverlay() {
   const styles = useStyles();
   const { colors } = useTheme();
@@ -14,14 +14,20 @@ export function NoticeOverlay() {
 
   if (!notice) return null;
 
-  const isSuspend = notice.tone === "suspend";
-  const accent = isSuspend ? colors.error : colors.warning;
+  const accent =
+    notice.tone === "suspend"
+      ? colors.error
+      : notice.tone === "subs"
+        ? colors.info
+        : colors.warning;
 
   return (
     <View style={styles.backdrop} testID="notice-overlay">
       <View style={[styles.card, { borderColor: accent }]}>
-        {isSuspend ? (
+        {notice.tone === "suspend" ? (
           <WarningOctagon size={56} color={accent} weight="fill" />
+        ) : notice.tone === "subs" ? (
+          <WarningCircle size={56} color={accent} weight="fill" />
         ) : (
           <Prohibit size={56} color={accent} weight="fill" />
         )}
@@ -59,7 +65,7 @@ const useStyles = makeStyles((colors) => ({
   },
   title: {
     fontFamily: fonts.display,
-    fontSize: 40,
+    fontSize: 38,
     letterSpacing: 1.5,
     textAlign: "center",
   },
@@ -77,9 +83,7 @@ const useStyles = makeStyles((colors) => ({
     justifyContent: "center",
     paddingHorizontal: 32,
   },
-  pressed: {
-    opacity: 0.8,
-  },
+  pressed: { opacity: 0.8 },
   buttonText: {
     fontFamily: fonts.bodyBold,
     fontSize: 16,

@@ -36,8 +36,8 @@ export function ActionButton({ label, bgColor, fgColor, icon, onPress, testID }:
 
 const useStyles = makeStyles(() => ({
   button: {
-    flex: 1,
-    height: 72,
+    width: "100%",
+    height: 64,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",

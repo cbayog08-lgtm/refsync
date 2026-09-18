@@ -34,6 +34,8 @@ export default function RootLayout() {
                     }}
                   >
                     <Stack.Screen name="index" />
+                    <Stack.Screen name="setup" />
+                    <Stack.Screen name="lineup" />
                     <Stack.Screen name="match" />
                     <Stack.Screen name="summary" />
                     <Stack.Screen name="history" />

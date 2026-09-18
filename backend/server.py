@@ -32,6 +32,8 @@ class Match(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     home_team: str = "LOCAL"
     away_team: str = "VISITANTE"
+    home_color: str = "#EF4444"
+    away_color: str = "#3B82F6"
     category: str = "Aficionado"
     half_duration_min: int = 45
     status: str = "active"  # active | finished
@@ -42,6 +44,8 @@ class Match(BaseModel):
 class MatchCreate(BaseModel):
     home_team: str = "LOCAL"
     away_team: str = "VISITANTE"
+    home_color: str = "#EF4444"
+    away_color: str = "#3B82F6"
     category: str = "Aficionado"
     half_duration_min: int = 45
 

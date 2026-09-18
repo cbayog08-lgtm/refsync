@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -10,23 +10,16 @@ import { useMatch } from "@/src/context/match";
 import { fonts } from "@/src/fonts";
 import { makeStyles, useTheme } from "@/src/theme";
 
-export default function SetupScreen() {
+export default function CategoryScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
-  const { startMatch } = useMatch();
-  const [busy, setBusy] = useState(false);
+  const { setDraft } = useMatch();
 
-  const pick = async (cat: Category) => {
-    if (busy) return;
-    setBusy(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      await startMatch(cat);
-      router.push("/match");
-    } finally {
-      setBusy(false);
-    }
+  const pick = (cat: Category) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDraft({ category: cat });
+    router.push("/setup");
   };
 
   return (
@@ -51,7 +44,9 @@ export default function SetupScreen() {
           >
             <View>
               <Text style={styles.rowLabel}>{cat.label}</Text>
-              <Text style={styles.rowSub}>2 x {cat.halfMin}'</Text>
+              <Text style={styles.rowSub}>
+                2 x {cat.halfMin}' · {cat.maxSubs == null ? "cambios ilimitados" : `${cat.maxSubs} cambios`}
+              </Text>
             </View>
             <CaretRight size={22} color={colors.onSurfaceTertiary} weight="bold" />
           </Pressable>
@@ -118,7 +113,7 @@ const useStyles = makeStyles((colors) => ({
   },
   rowSub: {
     fontFamily: fonts.body,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.onSurfaceTertiary,
     marginTop: 1,
   },

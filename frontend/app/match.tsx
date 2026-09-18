@@ -1,12 +1,14 @@
-import React, { useCallback } from "react";
-import { Pressable, Text, View } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import {
   ArrowsLeftRight,
   ListBullets,
+  Minus,
   Pause,
   Play,
+  Plus,
   SoccerBall,
   WarningCircle,
 } from "phosphor-react-native";
@@ -23,11 +25,30 @@ export default function MatchScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
-  const { matchId, category, status, mainMs, addedMs, start, toggle } = useMatch();
+  const {
+    matchId,
+    category,
+    teams,
+    status,
+    mainMs,
+    addedMs,
+    announcedAddedMin,
+    incAdded,
+    decAdded,
+    start,
+    toggle,
+  } = useMatch();
   const { data: events = [] } = useEvents(matchId);
 
-  // Only redirect when THIS screen is focused (avoids racing with the
-  // navigation to the acta after finishing a match).
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const [page, setPage] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+
+  const goToPage = (index: number) => {
+    scrollRef.current?.scrollTo({ x: size.w * index, animated: true });
+    setPage(index);
+  };
+
   useFocusEffect(
     useCallback(() => {
       if (!matchId) router.replace("/");
@@ -48,132 +69,198 @@ export default function MatchScreen() {
     else toggle();
   };
 
-  return (
-    <WatchScreen padScale={0.085}>
-      <View style={styles.topRow}>
-        <View style={styles.scoreBlock}>
-          <Text style={styles.teamLabel}>LOC</Text>
-          <Text style={styles.score}>{homeGoals}</Text>
-        </View>
-        <Pressable
-          testID="open-summary-button"
-          onPress={() => router.push("/summary")}
-          style={styles.summaryBtn}
-          hitSlop={8}
-        >
-          <ListBullets size={18} color={colors.onSurfaceTertiary} weight="bold" />
-        </Pressable>
-        <View style={styles.scoreBlock}>
-          <Text style={styles.teamLabel}>VIS</Text>
-          <Text style={styles.score}>{awayGoals}</Text>
-        </View>
-      </View>
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (size.w > 0) {
+      setPage(Math.round(e.nativeEvent.contentOffset.x / size.w));
+    }
+  };
 
-      <View style={styles.timerWrap}>
-        <Text style={styles.period}>
-          {status === "paused" ? "TIEMPO AÑADIDO" : category?.label ?? "1ª PARTE"}
-        </Text>
-        <Text testID="main-timer" style={styles.timer}>
-          {formatClock(mainMs)}
-        </Text>
-        {addedMs > 0 && (
-          <Text testID="added-timer" style={styles.addedTimer}>
-            +{formatClock(addedMs)}
-          </Text>
+  const go = (path: "/log/goal" | "/log/card" | "/log/substitution" | "/summary") => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(path);
+  };
+
+  return (
+    <WatchScreen padScale={0.08}>
+      <View
+        style={styles.pager}
+        onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+      >
+        {size.w > 0 && (
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            testID="match-pager"
+          >
+            {/* Page 1 — Time & Score */}
+            <View style={[styles.page, { width: size.w, height: size.h }]}>
+              <View style={styles.scoreboard}>
+                <View style={styles.teamCol}>
+                  <View style={styles.teamTag}>
+                    <View style={[styles.dot, { backgroundColor: teams.homeColor }]} />
+                    <Text style={styles.teamName} numberOfLines={1}>{teams.homeName}</Text>
+                  </View>
+                  <Text style={styles.score}>{homeGoals}</Text>
+                </View>
+                <Text style={styles.scoreDash}>-</Text>
+                <View style={styles.teamCol}>
+                  <View style={styles.teamTag}>
+                    <View style={[styles.dot, { backgroundColor: teams.awayColor }]} />
+                    <Text style={styles.teamName} numberOfLines={1}>{teams.awayName}</Text>
+                  </View>
+                  <Text style={styles.score}>{awayGoals}</Text>
+                </View>
+              </View>
+
+              <View style={styles.timerBlock}>
+                <Text style={styles.period}>
+                  {status === "paused" ? "TIEMPO AÑADIDO" : category?.label ?? "1ª PARTE"}
+                </Text>
+                <Text testID="main-timer" style={styles.timer}>{formatClock(mainMs)}</Text>
+                {addedMs > 0 && (
+                  <Text testID="added-timer" style={styles.addedTimer}>+{formatClock(addedMs)}</Text>
+                )}
+              </View>
+
+              <Pressable
+                testID="play-pause-button"
+                onPress={handlePlayPause}
+                style={({ pressed }) => [styles.playPause, pressed && styles.pressed]}
+              >
+                {isRunning ? (
+                  <Pause size={18} color={colors.onSurface} weight="fill" />
+                ) : (
+                  <Play size={18} color={colors.onSurface} weight="fill" />
+                )}
+                <Text style={styles.playPauseText}>
+                  {isStopped ? "INICIAR" : isRunning ? "PAUSA" : "SEGUIR"}
+                </Text>
+              </Pressable>
+
+              <View style={styles.addedStepper}>
+                <Pressable testID="added-minus" onPress={decAdded} style={styles.stepBtn}>
+                  <Minus size={18} color={colors.onSurface} weight="bold" />
+                </Pressable>
+                <View style={styles.addedValue}>
+                  <Text style={styles.addedLabel}>AÑADIDO</Text>
+                  <Text testID="added-announced" style={styles.addedNum}>{`+${announcedAddedMin}'`}</Text>
+                </View>
+                <Pressable testID="added-plus" onPress={incAdded} style={styles.stepBtn}>
+                  <Plus size={18} color={colors.onSurface} weight="bold" />
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Page 2 — Actions */}
+            <View style={[styles.page, { width: size.w, height: size.h }]}>
+              <View style={styles.actionsCol}>
+                <ActionButton
+                  testID="action-goal"
+                  label="+ GOL"
+                  bgColor={colors.success}
+                  fgColor={colors.onSuccess}
+                  icon={<SoccerBall size={24} color={colors.onSuccess} weight="fill" />}
+                  onPress={() => go("/log/goal")}
+                />
+                <ActionButton
+                  testID="action-card"
+                  label="TARJETA"
+                  bgColor={colors.warning}
+                  fgColor={colors.onWarning}
+                  icon={<WarningCircle size={24} color={colors.onWarning} weight="fill" />}
+                  onPress={() => go("/log/card")}
+                />
+                <ActionButton
+                  testID="action-substitution"
+                  label="CAMBIO"
+                  bgColor={colors.info}
+                  fgColor={colors.onInfo}
+                  icon={<ArrowsLeftRight size={24} color={colors.onInfo} weight="bold" />}
+                  onPress={() => go("/log/substitution")}
+                />
+                <Pressable
+                  testID="open-summary-button"
+                  onPress={() => go("/summary")}
+                  style={({ pressed }) => [styles.summaryBtn, pressed && styles.pressed]}
+                >
+                  <ListBullets size={18} color={colors.onSurface} weight="bold" />
+                  <Text style={styles.summaryText}>RESUMEN</Text>
+                </Pressable>
+              </View>
+            </View>
+          </ScrollView>
         )}
 
-        <Pressable
-          testID="play-pause-button"
-          onPress={handlePlayPause}
-          style={({ pressed }) => [styles.playPause, pressed && styles.pressed]}
-        >
-          {isRunning ? (
-            <Pause size={18} color={colors.onSurface} weight="fill" />
-          ) : (
-            <Play size={18} color={colors.onSurface} weight="fill" />
-          )}
-          <Text style={styles.playPauseText}>
-            {isStopped ? "INICIAR" : isRunning ? "PAUSA" : "SEGUIR"}
-          </Text>
-        </Pressable>
+        <View style={styles.dots}>
+          <Pressable testID="tab-time" onPress={() => goToPage(0)} hitSlop={10}>
+            <View style={[styles.dotPage, page === 0 && styles.dotPageActive]} />
+          </Pressable>
+          <Pressable testID="tab-actions" onPress={() => goToPage(1)} hitSlop={10}>
+            <View style={[styles.dotPage, page === 1 && styles.dotPageActive]} />
+          </Pressable>
+        </View>
       </View>
-
-      <View style={styles.actions}>
-        <ActionButton
-          testID="action-goal"
-          label="GOL"
-          bgColor={colors.success}
-          fgColor={colors.onSuccess}
-          icon={<SoccerBall size={24} color={colors.onSuccess} weight="fill" />}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/log/goal");
-          }}
-        />
-        <ActionButton
-          testID="action-card"
-          label="TARJETA"
-          bgColor={colors.warning}
-          fgColor={colors.onWarning}
-          icon={<WarningCircle size={24} color={colors.onWarning} weight="fill" />}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/log/card");
-          }}
-        />
-        <ActionButton
-          testID="action-substitution"
-          label="CAMBIO"
-          bgColor={colors.info}
-          fgColor={colors.onInfo}
-          icon={<ArrowsLeftRight size={24} color={colors.onInfo} weight="bold" />}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push("/log/substitution");
-          }}
-        />
-      </View>
-      <View style={styles.bottomSpacer} />
     </WatchScreen>
   );
 }
 
 const useStyles = makeStyles((colors) => ({
-  topRow: {
+  pager: { flex: 1 },
+  page: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 4,
+  },
+  scoreboard: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
+    gap: 10,
   },
-  scoreBlock: {
+  teamCol: {
     alignItems: "center",
-    minWidth: 44,
+    maxWidth: 110,
   },
-  teamLabel: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 10,
-    letterSpacing: 1,
-    color: colors.onSurfaceTertiary,
+  teamTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    maxWidth: 110,
+  },
+  dot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  teamName: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    letterSpacing: 0.3,
+    color: colors.onSurface,
+    flexShrink: 1,
   },
   score: {
     fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 32,
+    fontSize: 40,
+    lineHeight: 42,
     color: colors.onSurface,
   },
-  summaryBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surfaceSecondary,
-    alignItems: "center",
-    justifyContent: "center",
+  scoreDash: {
+    fontFamily: fonts.display,
+    fontSize: 30,
+    color: colors.onSurfaceTertiary,
+    marginTop: 14,
   },
-  timerWrap: {
-    flex: 1,
+  timerBlock: {
     alignItems: "center",
-    justifyContent: "center",
-    gap: 2,
+    gap: 0,
   },
   period: {
     fontFamily: fonts.bodyMedium,
@@ -183,43 +270,99 @@ const useStyles = makeStyles((colors) => ({
   },
   timer: {
     fontFamily: fonts.display,
-    fontSize: 78,
-    lineHeight: 82,
+    fontSize: 74,
+    lineHeight: 78,
     color: colors.onSurface,
     letterSpacing: 1,
   },
   addedTimer: {
     fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 28,
     color: colors.warning,
   },
   playPause: {
-    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 22,
-    height: 46,
+    height: 44,
     borderRadius: 999,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceSecondary,
   },
-  pressed: {
-    opacity: 0.7,
-  },
+  pressed: { opacity: 0.7 },
   playPauseText: {
     fontFamily: fonts.bodyBold,
     fontSize: 14,
     letterSpacing: 1,
     color: colors.onSurface,
   },
-  actions: {
+  addedStepper: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  stepBtn: {
+    width: 44,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addedValue: {
+    alignItems: "center",
+    minWidth: 70,
+  },
+  addedLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: colors.onSurfaceTertiary,
+  },
+  addedNum: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    lineHeight: 28,
+    color: colors.onSurface,
+  },
+  actionsCol: {
+    width: "100%",
+    gap: 10,
+    paddingHorizontal: 6,
+  },
+  summaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 46,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  summaryText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    letterSpacing: 1,
+    color: colors.onSurface,
+  },
+  dots: {
+    ...({ position: "absolute", bottom: 0, left: 0, right: 0 } as const),
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 6,
   },
-  bottomSpacer: {
-    flex: 0.55,
+  dotPage: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  dotPageActive: {
+    backgroundColor: colors.onSurface,
+    width: 18,
   },
 }));

@@ -35,7 +35,16 @@ App prototipo tipo smartwatch para árbitros de fútbol. Formato reloj REDONDO (
 - [x] Testing agent: backend 23/23 pytest; flujos frontend validados.
 
 ## Backlog / Next
-- P1: Editar nombres de equipos y competición antes del partido.
-- P1: Segunda parte / descanso explícito (medio tiempo, reinicio de reloj de parte).
-- P2: Estadísticas por jugador / conteo de amonestados en pantalla.
+- P2: Estadísticas por jugador / minutos jugados.
 - P2: Exportar acta a PDF y compartir por email.
+- P2: Segunda parte / descanso con reinicio de reloj de parte.
+
+## Iteración 3 (2026-06)
+- [x] FIX: pantalla de partido rediseñada en 2 pestañas (Tiempo+Marcador / Acciones) con indicadores tocables y swipe; sin solapamientos.
+- [x] Configuración pre-partido `setup`: nombre + color (paleta de 8) para Local y Visitante; distintivo de color en marcador y selectores.
+- [x] Normativa de cambios por categoría: Alevín/Infantil/Cadete ilimitados; Juvenil/Aficionado máx 5 cambios / 3 ventanas con avisos (6º cambio, 4ª ventana).
+- [x] Tiempo añadido manual (stepper +/-) en la pestaña de tiempo.
+- [x] Modo Plantilla opcional: `lineup` para titulares+banca; en GOL/TARJETA/CAMBIO se eligen jugadores en campo (PlayerGrid) y los cambios actualizan la alineación.
+- [x] Backend: Match guarda home_color/away_color; acta/historial muestran nombres y colores.
+- [x] Testing agent: backend 23/23; 11/11 flujos frontend verdes.
+
