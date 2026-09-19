@@ -1,175 +1,139 @@
-from fastapi import FastAPI, APIRouter, HTTPException
-from dotenv import load_dotenv
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
-import logging
-import uuid
-import random
-from pathlib import Path
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal, Dict, Any
-from datetime import datetime, timezone
+from typing import List, Optional
+from datetime import datetime
+import uuid
 
+app = FastAPI(title="RefSync OS API", version="2.0.0")
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+# --- MODELOS DE DATOS ---
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
-
-app = FastAPI()
-api_router = APIRouter(prefix="/api")
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-# -------- Models --------
-class Match(BaseModel):
+class Player(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    home_team: str = "LOCAL"
-    away_team: str = "VISITANTE"
-    home_color: str = "#EF4444"
-    away_color: str = "#3B82F6"
-    category: str = "Aficionado"
-    half_duration_min: int = 45
-    pair_code: str = ""
-    lineup_enabled: bool = False
-    lineups: Dict[str, Any] = Field(default_factory=dict)
-    status: str = "active"  # active | finished
-    created_at: str = Field(default_factory=now_iso)
-    finished_at: Optional[str] = None
+    number: int
+    name: str
+    is_starter: bool = True
 
-
-class MatchCreate(BaseModel):
-    home_team: str = "LOCAL"
-    away_team: str = "VISITANTE"
-    home_color: str = "#EF4444"
-    away_color: str = "#3B82F6"
-    category: str = "Aficionado"
-    half_duration_min: int = 45
-    lineup_enabled: bool = False
-    lineups: Dict[str, Any] = Field(default_factory=dict)
-
-
-class Event(BaseModel):
+class CardEvent(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    match_id: str
-    type: Literal["goal", "card", "substitution"]
     minute: int
-    added_minute: int = 0
-    team: Literal["home", "away"]
-    dorsal: Optional[int] = None
-    card_color: Optional[Literal["yellow", "red"]] = None
-    dorsal_out: Optional[int] = None
-    dorsal_in: Optional[int] = None
+    player_number: int
+    card_type: str  # "yellow", "red", "yellow_red"
     reason: Optional[str] = None
-    created_at: str = Field(default_factory=now_iso)
+    voice_note_transcript: Optional[str] = None
 
-
-class EventCreate(BaseModel):
-    type: Literal["goal", "card", "substitution"]
+class GoalEvent(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     minute: int
-    added_minute: int = 0
-    team: Literal["home", "away"]
-    dorsal: Optional[int] = None
-    card_color: Optional[Literal["yellow", "red"]] = None
-    dorsal_out: Optional[int] = None
-    dorsal_in: Optional[int] = None
-    reason: Optional[str] = None
+    player_number: int
+    team: str  # "home" o "away"
 
+class IncidentEvent(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    minute: int
+    description: str
+    voice_note_transcript: Optional[str] = None
 
-# -------- Routes --------
-@api_router.get("/")
-async def root():
-    return {"message": "RefSync OS API"}
+class SubstitutionEvent(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    minute: int
+    player_out_number: int
+    player_in_number: int
+    team: str
 
+class MatchConfig(BaseModel):
+    category: str  # Prebenjamín, Benjamín, Alevín, Infantil, Cadete, Juvenil, Senior, F11
+    period_duration_minutes: int
+    max_substitutes: int = 7
 
-@api_router.post("/matches", response_model=Match)
-async def create_match(body: MatchCreate):
-    match = Match(**body.model_dump())
-    match.pair_code = f"{random.randint(0, 999999):06d}"
-    await db.matches.insert_one(match.model_dump())
+class MatchState(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    home_team: str
+    away_team: str
+    config: MatchConfig
+    current_period: int = 1  # 1: 1ª Parte, 2: Descanso, 3: 2ª Parte, 4: Finalizado
+    home_lineup: List[Player] = []
+    away_lineup: List[Player] = []
+    goals: List[GoalEvent] = []
+    cards: List[CardEvent] = []
+    incidents: List[IncidentEvent] = []
+    substitutions: List[SubstitutionEvent] = []
+    history: List[dict] = []  # Para la función Deshacer (Undo)
+
+# Base de datos en memoria para el estado del partido
+db_matches = {}
+
+# --- ENDPOINTS Y LÓGICA ---
+
+@app.get("/")
+def read_root():
+    return {"status": "RefSync OS Backend Running", "version": "2.0.0"}
+
+@app.post("/matches", response_model=MatchState)
+def create_match(match: MatchState):
+    # Validación de suplentes en Fútbol 11
+    if match.config.category in ["Senior", "Juvenil", "Cadete", "F11"]:
+        home_subs = [p for p in match.home_lineup if not p.is_starter]
+        away_subs = [p for p in match.away_lineup if not p.is_starter]
+        if len(home_subs) > 7 or len(away_subs) > 7:
+            raise HTTPException(
+                status_code=400, 
+                detail="En categorías de Fútbol 11 se permite un máximo de 7 suplentes."
+            )
+    
+    db_matches[match.id] = match
     return match
 
+@app.post("/matches/{match_id}/goal", response_model=MatchState)
+def register_goal(match_id: str, goal: GoalEvent):
+    if match_id not in db_matches:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    
+    match = db_matches[match_id]
+    match.history.append({"type": "goal", "data": goal.dict()})
+    match.goals.append(goal)
+    return match
 
-@api_router.get("/matches/by-code/{code}", response_model=Match)
-async def get_match_by_code(code: str):
-    doc = await db.matches.find_one(
-        {"pair_code": code, "status": "active"}, {"_id": 0}, sort=[("created_at", -1)]
-    )
-    if not doc:
-        raise HTTPException(status_code=404, detail="No active match for code")
-    return Match(**doc)
+@app.post("/matches/{match_id}/card", response_model=CardEvent)
+def register_card(match_id: str, card: CardEvent):
+    if match_id not in db_matches:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    
+    match = db_matches[match_id]
+    match.history.append({"type": "card", "data": card.dict()})
+    match.cards.append(card)
+    return card
 
+@app.post("/matches/{match_id}/incident", response_model=IncidentEvent)
+def register_incident(match_id: str, incident: IncidentEvent):
+    if match_id not in db_matches:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    
+    match = db_matches[match_id]
+    match.history.append({"type": "incident", "data": incident.dict()})
+    match.incidents.append(incident)
+    return incident
 
-@api_router.get("/matches", response_model=List[Match])
-async def list_matches(status: Optional[str] = None):
-    query = {} if not status else {"status": status}
-    docs = await db.matches.find(query, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    return [Match(**d) for d in docs]
-
-
-@api_router.get("/matches/{match_id}", response_model=Match)
-async def get_match(match_id: str):
-    doc = await db.matches.find_one({"id": match_id}, {"_id": 0})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Match not found")
-    return Match(**doc)
-
-
-@api_router.post("/matches/{match_id}/finish", response_model=Match)
-async def finish_match(match_id: str):
-    doc = await db.matches.find_one({"id": match_id}, {"_id": 0})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Match not found")
-    await db.matches.update_one(
-        {"id": match_id},
-        {"$set": {"status": "finished", "finished_at": now_iso()}},
-    )
-    doc = await db.matches.find_one({"id": match_id}, {"_id": 0})
-    return Match(**doc)
-
-
-@api_router.get("/matches/{match_id}/events", response_model=List[Event])
-async def list_events(match_id: str):
-    docs = await db.events.find({"match_id": match_id}, {"_id": 0}).to_list(1000)
-    events = [Event(**d) for d in docs]
-    events.sort(key=lambda e: (e.minute, e.added_minute, e.created_at))
-    return events
-
-
-@api_router.post("/matches/{match_id}/events", response_model=Event)
-async def add_event(match_id: str, body: EventCreate):
-    match_doc = await db.matches.find_one({"id": match_id}, {"_id": 0})
-    if not match_doc:
-        raise HTTPException(status_code=404, detail="Match not found")
-    event = Event(match_id=match_id, **body.model_dump())
-    await db.events.insert_one(event.model_dump())
-    return event
-
-
-app.include_router(api_router)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+@app.post("/matches/{match_id}/undo", response_model=MatchState)
+def undo_last_action(match_id: str):
+    if match_id not in db_matches:
+        raise HTTPException(status_code=404, detail="Partido no encontrado")
+    
+    match = db_matches[match_id]
+    if not match.history:
+        raise HTTPException(status_code=400, detail="No hay acciones para deshacer")
+    
+    last_action = match.history.pop()
+    action_type = last_action["type"]
+    action_data = last_action["data"]
+    
+    if action_type == "goal":
+        match.goals = [g for g in match.goals if g.id != action_data["id"]]
+    elif action_type == "card":
+        match.cards = [c for c in match.cards if c.id != action_data["id"]]
+    elif action_type == "incident":
+        match.incidents = [i for i in match.incidents if i.id != action_data["id"]]
+    elif action_type == "substitution":
+        match.substitutions = [s for s in match.substitutions if s.id != action_data["id"]]
+        
+    return match
