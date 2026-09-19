@@ -1,0 +1,164 @@
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+
+interface MobileMatchScreenProps {
+  matchData: any;
+  onOpenGoalModal: () => void;
+  onOpenCardModal: () => void;
+  onOpenSubstitutionModal: () => void;
+  onOpenIncidentModal: () => void;
+  onGeneratePDF: () => void;
+  onFinishMatch: () => void;
+}
+
+export const MobileMatchScreen: React.FC<MobileMatchScreenProps> = ({
+  matchData,
+  onOpenGoalModal,
+  onOpenCardModal,
+  onOpenSubstitutionModal,
+  onOpenIncidentModal,
+  onGeneratePDF,
+  onFinishMatch,
+}) => {
+  const [activeTab, setActiveTab] = useState<'timeline' | 'lineup' | 'acta'>('timeline');
+
+  const confirmFinishMatch = () => {
+    Alert.alert(
+      "¿Finalizar Partido?",
+      "Esta acción cerrará el acta y guardará el resultado definitivo.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Sí, Finalizar", style: "destructive", onPress: onFinishMatch }
+      ]
+    );
+  };
+
+  return (
+    <View style={styles.mobileContainer}>
+      {/* Cabecera Móvil - Marcador y Estado */}
+      <View style={styles.headerCard}>
+        <Text style={styles.categoryBadge}>{matchData.config?.category?.toUpperCase() || 'FÚTBOL'}</Text>
+        <View style={styles.scoreRow}>
+          <View style={styles.teamBox}>
+            <Text style={styles.teamTitle}>{matchData.home_team}</Text>
+            <Text style={styles.scoreBig}>{matchData.goals?.filter((g: any) => g.team === 'home').length || 0}</Text>
+          </View>
+          <Text style={styles.vsText}>VS</Text>
+          <View style={styles.teamBox}>
+            <Text style={styles.teamTitle}>{matchData.away_team}</Text>
+            <Text style={styles.scoreBig}>{matchData.goals?.filter((g: any) => g.team === 'away').length || 0}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Botones de Acción Arbitral Principales */}
+      <View style={styles.mainActionsRow}>
+        <TouchableOpacity style={[styles.mainBtn, { backgroundColor: '#00FF66' }]} onPress={onOpenGoalModal}>
+          <Text style={styles.mainBtnTextDark}>⚽ GOL</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.mainBtn, { backgroundColor: '#FFD700' }]} onPress={onOpenCardModal}>
+          <Text style={styles.mainBtnTextDark}>🟨 TARJETA</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.mainBtn, { backgroundColor: '#1C1C1E', borderWidth: 1, borderColor: '#333' }]} onPress={onOpenSubstitutionModal}>
+          <Text style={styles.mainBtnTextLight}>🔄 CAMBIO</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Botón "Añadir" secundario y reducido */}
+      <View style={styles.secondaryActionsRow}>
+        <TouchableOpacity style={styles.smallAddBtn} onPress={onOpenIncidentModal}>
+          <Text style={styles.smallAddText}>+ Añadir incidencia / nota de voz</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Navegación por pestañas */}
+      <View style={styles.tabsRow}>
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'timeline' && styles.tabItemActive]} 
+          onPress={() => setActiveTab('timeline')}
+        >
+          <Text style={[styles.tabText, activeTab === 'timeline' && styles.tabTextActive]}>Cronología</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'lineup' && styles.tabItemActive]} 
+          onPress={() => setActiveTab('lineup')}
+        >
+          <Text style={[styles.tabText, activeTab === 'lineup' && styles.tabTextActive]}>Alineaciones</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.tabItem, activeTab === 'acta' && styles.tabItemActive]} 
+          onPress={() => setActiveTab('acta')}
+        >
+          <Text style={[styles.tabText, activeTab === 'acta' && styles.tabTextActive]}>Acta / PDF</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Contenido según la pestaña activa */}
+      <ScrollView style={styles.contentArea}>
+        {activeTab === 'timeline' && (
+          <View>
+            <Text style={styles.sectionTitle}>Eventos del Partido</Text>
+            {matchData.goals?.map((g: any, index: number) => (
+              <View key={index} style={styles.eventItem}>
+                <Text style={styles.eventMinute}>{g.minute}'</Text>
+                <Text style={styles.eventDesc}>⚽ Gol de Dorsal #{g.player_number} ({g.team === 'home' ? matchData.home_team : matchData.away_team})</Text>
+              </View>
+            ))}
+            {matchData.cards?.map((c: any, index: number) => (
+              <View key={index} style={styles.eventItem}>
+                <Text style={styles.eventMinute}>{c.minute}'</Text>
+                <Text style={styles.eventDesc}>🟨 Tarjeta a Dorsal #{c.player_number} - {c.reason || 'Sin motivo'}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'acta' && (
+          <View style={{ gap: 12 }}>
+            <TouchableOpacity style={styles.pdfBtn} onPress={onGeneratePDF}>
+              <Text style={styles.pdfBtnText}>📄 Generar / Descargar PDF del Acta</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.finishBtn} onPress={confirmFinishMatch}>
+              <Text style={styles.finishBtnText}>🏁 Finalizar Partido Definitivemente</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  mobileContainer: { flex: 1, backgroundColor: '#0A0A0A', padding: 16 },
+  headerCard: { backgroundColor: '#121212', borderRadius: 16, padding: 16, alignItems: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#222' },
+  categoryBadge: { color: '#8E8E93', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 8 },
+  teamBox: { alignItems: 'center', flex: 1 },
+  teamTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  scoreBig: { color: '#00FF66', fontSize: 32, fontWeight: 'bold' },
+  vsText: { color: '#555', fontSize: 14, fontWeight: 'bold' },
+  mainActionsRow: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  mainBtn: { flex: 1, height: 48, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  mainBtnTextDark: { color: '#000', fontWeight: 'bold', fontSize: 14 },
+  mainBtnTextLight: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+  secondaryActionsRow: { alignItems: 'center', marginBottom: 16 },
+  smallAddBtn: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#1A1A1A', borderRadius: 20 },
+  smallAddText: { color: '#888', fontSize: 12 },
+  tabsRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#222', marginBottom: 12 },
+  tabItem: { flex: 1, paddingVertical: 10, alignItems: 'center' },
+  tabItemActive: { borderBottomWidth: 2, borderBottomColor: '#00FF66' },
+  tabText: { color: '#666', fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: '#00FF66', fontWeight: 'bold' },
+  contentArea: { flex: 1 },
+  sectionTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
+  eventItem: { flexDirection: 'row', backgroundColor: '#141414', padding: 12, borderRadius: 8, marginBottom: 8 },
+  eventMinute: { color: '#00FF66', fontWeight: 'bold', width: 35 },
+  eventDesc: { color: '#DDD', fontSize: 14 },
+  pdfBtn: { backgroundColor: '#007AFF', padding: 14, borderRadius: 12, alignItems: 'center' },
+  pdfBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 },
+  finishBtn: { backgroundColor: '#FF3B30', padding: 14, borderRadius: 12, alignItems: 'center' },
+  finishBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 15 }
+});
