@@ -5,9 +5,10 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
+import random
 from pathlib import Path
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 from datetime import datetime, timezone
 
 
@@ -36,6 +37,9 @@ class Match(BaseModel):
     away_color: str = "#3B82F6"
     category: str = "Aficionado"
     half_duration_min: int = 45
+    pair_code: str = ""
+    lineup_enabled: bool = False
+    lineups: Dict[str, Any] = Field(default_factory=dict)
     status: str = "active"  # active | finished
     created_at: str = Field(default_factory=now_iso)
     finished_at: Optional[str] = None
@@ -48,6 +52,8 @@ class MatchCreate(BaseModel):
     away_color: str = "#3B82F6"
     category: str = "Aficionado"
     half_duration_min: int = 45
+    lineup_enabled: bool = False
+    lineups: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Event(BaseModel):
@@ -86,8 +92,19 @@ async def root():
 @api_router.post("/matches", response_model=Match)
 async def create_match(body: MatchCreate):
     match = Match(**body.model_dump())
+    match.pair_code = f"{random.randint(0, 999999):06d}"
     await db.matches.insert_one(match.model_dump())
     return match
+
+
+@api_router.get("/matches/by-code/{code}", response_model=Match)
+async def get_match_by_code(code: str):
+    doc = await db.matches.find_one(
+        {"pair_code": code, "status": "active"}, {"_id": 0}, sort=[("created_at", -1)]
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="No active match for code")
+    return Match(**doc)
 
 
 @api_router.get("/matches", response_model=List[Match])

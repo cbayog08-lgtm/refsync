@@ -39,6 +39,15 @@ App prototipo tipo smartwatch para árbitros de fútbol. Formato reloj REDONDO (
 - P2: Exportar acta a PDF y compartir por email.
 - P2: Segunda parte / descanso con reinicio de reloj de parte.
 
+## Iteración 5 (2026-06)
+- [x] Arquitectura dual en una app Expo: selector Modo Reloj / Modo Móvil al abrir.
+- [x] Sincronización vía backend con código de 6 dígitos (pair_code); el JSON del partido incluye equipos, colores, categoría y alineaciones.
+- [x] Modo Móvil: configura y muestra pantalla SINCRONIZAR con el código + acceso a Historial.
+- [x] Modo Reloj: carga por código (pantalla emparejar) o funciona autónomo (partido nuevo).
+- [x] Exportación del acta en PDF real (expo-print + expo-sharing).
+- [x] i18n Español/Portugués con provider, archivos es.json/pt.json y selector en Ajustes; pantallas principales traducidas.
+- [x] Testing agent: backend 29/29; flujos de sync/PDF/idioma verdes.
+
 ## Iteración 4 (2026-06)
 - [x] FIX tiempo añadido: botones +/- funcionales, valor en pastilla amarilla de alto contraste "+N MIN".
 - [x] FIX scroll: resumen, acta e historial a pantalla completa (ListScreen) con scroll fluido, sin recortes.

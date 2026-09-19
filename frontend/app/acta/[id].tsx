@@ -1,8 +1,10 @@
 import React from "react";
-import { FlatList, Pressable, Share, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { Export, House } from "phosphor-react-native";
 
 import { api, EventDto } from "@/src/api";
@@ -52,19 +54,23 @@ export default function ActaScreen() {
 
   const exportActa = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const lines = [
-      "RefSync OS — Acta de Partido",
-      match ? `Categoría: ${match.category}` : "",
-      match ? `Fecha: ${formatDate(match.finished_at ?? match.created_at)}` : "",
-      `Marcador: ${homeName} ${homeGoals} - ${awayGoals} ${awayName}`,
-      "",
-      "Eventos:",
-      ...events.map(eventLine),
-    ].filter(Boolean);
+    const rows = events
+      .map((e) => `<tr><td style="padding:6px;border-bottom:1px solid #ddd">${eventLine(e)}</td></tr>`)
+      .join("");
+    const html = `<html><head><meta charset="utf-8"/></head>
+      <body style="font-family:-apple-system,Arial,sans-serif;padding:28px;color:#111">
+        <h1 style="margin:0;letter-spacing:1px">RefSync OS</h1>
+        <div style="color:#666;margin:2px 0 12px">${match?.category ?? ""} · ${match ? formatDate(match.finished_at ?? match.created_at) : ""}</div>
+        <h2 style="margin:0 0 12px">${homeName} ${homeGoals} - ${awayGoals} ${awayName}</h2>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">${rows || "<tr><td>—</td></tr>"}</table>
+      </body></html>`;
     try {
-      await Share.share({ message: lines.join("\n") });
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+      }
     } catch {
-      // user dismissed share sheet
+      // user cancelled or sharing unavailable
     }
   };
 

@@ -66,7 +66,7 @@ export default function LineupScreen() {
       lineupEnabled: true,
       lineups,
     });
-    router.replace("/match");
+    router.replace(draft.mode === "mobile" ? "/sync" : "/match");
   };
 
   return (

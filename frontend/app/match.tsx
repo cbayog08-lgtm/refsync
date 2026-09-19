@@ -17,6 +17,7 @@ import { ActionButton } from "@/src/components/action-button";
 import { WatchScreen } from "@/src/components/watch-screen";
 import { useMatch } from "@/src/context/match";
 import { useEvents } from "@/src/hooks/events";
+import { useI18n } from "@/src/i18n";
 import { fonts } from "@/src/fonts";
 import { makeStyles, useTheme } from "@/src/theme";
 import { formatClock } from "@/src/utils/format";
@@ -25,6 +26,7 @@ export default function MatchScreen() {
   const styles = useStyles();
   const { colors } = useTheme();
   const router = useRouter();
+  const { t } = useI18n();
   const {
     matchId,
     category,
@@ -118,7 +120,7 @@ export default function MatchScreen() {
 
               <View style={styles.timerBlock}>
                 <Text style={styles.period}>
-                  {status === "paused" ? "TIEMPO AÑADIDO" : category?.label ?? "1ª PARTE"}
+                  {status === "paused" ? t("match.addedTime") : category?.label ?? t("match.firstHalf")}
                 </Text>
                 <Text testID="main-timer" style={styles.timer}>{formatClock(mainMs)}</Text>
                 {addedMs > 0 && (
@@ -137,7 +139,7 @@ export default function MatchScreen() {
                   <Play size={18} color={colors.onSurface} weight="fill" />
                 )}
                 <Text style={styles.playPauseText}>
-                  {isStopped ? "INICIAR" : isRunning ? "PAUSA" : "SEGUIR"}
+                  {isStopped ? t("common.iniciar") : isRunning ? t("common.pausa") : t("common.seguir")}
                 </Text>
               </Pressable>
 
@@ -146,10 +148,10 @@ export default function MatchScreen() {
                   <Minus size={20} color={colors.onSurface} weight="bold" />
                 </Pressable>
                 <View style={styles.addedValue}>
-                  <Text style={styles.addedLabel}>AÑADIDO</Text>
+                  <Text style={styles.addedLabel}>{t("match.added")}</Text>
                   <View style={styles.addedPill}>
                     <Text testID="added-announced" style={styles.addedNum}>{`+${announcedAddedMin}`}</Text>
-                    <Text style={styles.addedUnit}>MIN</Text>
+                    <Text style={styles.addedUnit}>{t("match.min")}</Text>
                   </View>
                 </View>
                 <Pressable testID="added-plus" onPress={incAdded} style={({ pressed }) => [styles.stepBtn, pressed && styles.pressed]}>
@@ -163,7 +165,7 @@ export default function MatchScreen() {
               <View style={styles.actionsCol}>
                 <ActionButton
                   testID="action-goal"
-                  label="+ GOL"
+                  label={t("action.gol")}
                   bgColor={colors.success}
                   fgColor={colors.onSuccess}
                   icon={<SoccerBall size={24} color={colors.onSuccess} weight="fill" />}
@@ -171,7 +173,7 @@ export default function MatchScreen() {
                 />
                 <ActionButton
                   testID="action-card"
-                  label="TARJETA"
+                  label={t("action.tarjeta")}
                   bgColor={colors.warning}
                   fgColor={colors.onWarning}
                   icon={<WarningCircle size={24} color={colors.onWarning} weight="fill" />}
@@ -179,7 +181,7 @@ export default function MatchScreen() {
                 />
                 <ActionButton
                   testID="action-substitution"
-                  label="CAMBIO"
+                  label={t("action.cambio")}
                   bgColor={colors.info}
                   fgColor={colors.onInfo}
                   icon={<ArrowsLeftRight size={24} color={colors.onInfo} weight="bold" />}
@@ -191,7 +193,7 @@ export default function MatchScreen() {
                   style={({ pressed }) => [styles.summaryBtn, pressed && styles.pressed]}
                 >
                   <ListBullets size={18} color={colors.onSurface} weight="bold" />
-                  <Text style={styles.summaryText}>RESUMEN</Text>
+                  <Text style={styles.summaryText}>{t("match.resumen")}</Text>
                 </Pressable>
               </View>
             </View>

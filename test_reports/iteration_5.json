@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 5 PASS. Backend: 29/29 pytest green (6 NEW pairing tests added — pair_code is 6-digit string; lineup_enabled + lineups persist and round-trip via GET; GET /api/matches/by-code/{code} returns full active match including colors, category, lineups; returns 404 for unknown code AND for a finished match; when two active matches exist by-code returns the one matching the code, ordered latest first). Frontend E2E at 390x844: (1) Home is MODE SELECTOR with mode-watch, mode-mobile and open-settings-button testIDs. (2) i18n: open-settings-button -> lang-pt switches mode-watch label to 'MODO RELÓGIO / Cronometrar o jogo'; lang-es restores 'MODO RELOJ / Cronometrar el partido'. Persists across nav. (3) MODO MÓVIL: mode-mobile -> category-aficionado -> setup (home-name-input RAYO, away-name-input ATLETI, home-color-*) -> setup-begin-button navigates to /sync and sync-code displays a 6-digit numeric string (verified regex 6 digits, real value 739358). (4) PAIRING END-TO-END: back to /, mode-watch -> categories shows open-pair-button -> /pair -> pair-code-input filled with the 6-digit code from step 3 -> pair-load-button navigates to /match with the paired teams; play-pause-button starts main-timer (00:00 -> 00:01). (5) MODO RELOJ AUTÓNOMO: mode-watch -> category-aficionado -> setup-begin-button -> /match; play-pause-button starts and main-timer advances. (6) ACTA + PDF: from /match tab-actions -> open-summary-button -> end-match-button navigates to /acta/<id> with acta-home, acta-export, acta-score. Clicking acta-export does NOT crash on web (Print.printToFileAsync + Sharing.shareAsync are inside try/catch; web has no share sheet, no red screen). acta-home returns to mode selector.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "index.tsx (mode selector)", "issues": ["During Expo Router navigation transitions, two DOM nodes with testID=mode-watch briefly coexist (previous+current route both mounted in web). Playwright must use .first or unique parent scoping. Not a functional bug; if desired, main agent could unmount the previous route or scope the ListScreen root with a unique testID like screen-mode-selector."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "GET /api/matches/by-code/{code} filters status=active AND sorts created_at desc — correct behavior confirmed by test_get_by_code_404_when_finished and test_get_by_code_returns_latest_active.",
+    "Match.pair_code uses random.randint(0, 999999) with no uniqueness guarantee; collisions across active matches are possible (astronomically small but non-zero). Not a bug per spec (by-code returns latest active), but consider dedup-on-insert with retry (or index) if match volume grows.",
+    "acta-export catches all errors silently; on web it prints and opens the print dialog OK (Print.printToFileAsync works via browser). Sharing.isAvailableAsync() returns false on web so no share sheet — matches spec ('en web puede no abrir hoja de compartir pero NO debe crashear'). Verified no crash.",
+    "index.tsx correctly resets/sets draft.mode on mode selection so categories.tsx can conditionally render open-pair-button only for watch mode — verified in E2E.",
+    "i18n uses AsyncStorage with LANG_KEY 'refsync_lang' + module-level currentLang for non-React consumers; consistent, no leaks observed.",
+    "server.py POST /matches returns 200 instead of 201 (pre-existing, non-blocking)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestPairing class with 6 new tests)"
+  ],
+  "success_rate": {"backend": "100% (29/29)", "frontend": "100% (8/8 review_request items)"},
+  "seed_data_creation": "Backend pytest creates disposable TEST_-prefixed matches per test. Frontend E2E creates 2 disposable matches (RAYO vs ATLETI mobile + AUT_H vs AUT_A watch autónomo).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 5 complete. Backend contract for pairing verified: POST /api/matches -> {pair_code: 6-digit str, lineup_enabled: bool, lineups: Dict}. GET /api/matches/by-code/{code} -> 200 if active exists (returns full match incl colors, category, lineups); 404 if none active for code (either unknown or finished). Frontend flows: index (mode-watch|mode-mobile|open-settings-button) -> categories (category-<key>, watch mode also shows open-pair-button + open-history-button) -> setup (home/away-name-input, home/away-color-<key>, lineup-toggle, setup-begin-button) -> mobile:/sync (sync-code, sync-home, sync-history-button) OR watch:/match. Pair: /pair (pair-code-input, pair-load-button, pair-back). Settings: /settings (lang-es, lang-pt, settings-back). ACTA (acta-home, acta-export, acta-score) — export uses expo-print + expo-sharing; on web prints OK, share sheet unavailable but no crash. All prior regressions (double_yellow, expulsion block, sub in lineup mode, added-plus/minus stepper, 3-step card flow, 16-color palette) still pass — no changes to those flows.",
+  "rca_of_issue": "N/A — no issues found."
+}

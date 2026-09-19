@@ -243,3 +243,89 @@ class TestEvents:
             "type": "goal", "minute": 1, "added_minute": 0, "team": "guest", "dorsal": 1,
         })
         assert r.status_code == 422
+
+
+# ---------- Pairing (pair_code + by-code + lineups) ----------
+class TestPairing:
+    def test_create_returns_6_digit_pair_code(self, api_client):
+        r = api_client.post(f"{API}/matches", json={"home_team": "TEST_HOME", "away_team": "TEST_AWAY"})
+        assert r.status_code == 200
+        data = r.json()
+        code = data.get("pair_code")
+        assert isinstance(code, str)
+        assert len(code) == 6
+        assert code.isdigit()
+
+    def test_create_persists_lineup_enabled_and_lineups(self, api_client):
+        lineups = {
+            "home": {"onField": [1, 7, 10], "bench": [12, 15]},
+            "away": {"onField": [3, 9], "bench": [11]},
+        }
+        r = api_client.post(f"{API}/matches", json={
+            "home_team": "TEST_L_H", "away_team": "TEST_L_A",
+            "lineup_enabled": True, "lineups": lineups,
+        })
+        assert r.status_code == 200
+        data = r.json()
+        assert data["lineup_enabled"] is True
+        assert data["lineups"] == lineups
+        # GET verifies persistence
+        g = api_client.get(f"{API}/matches/{data['id']}")
+        assert g.status_code == 200
+        gd = g.json()
+        assert gd["lineup_enabled"] is True
+        assert gd["lineups"] == lineups
+
+    def test_get_by_code_returns_active_match(self, api_client):
+        payload = {
+            "home_team": "TEST_BC_H", "away_team": "TEST_BC_A",
+            "home_color": "#123456", "away_color": "#654321",
+            "category": "Juvenil", "half_duration_min": 45,
+            "lineup_enabled": True,
+            "lineups": {"home": {"onField": [1], "bench": []}, "away": {"onField": [2], "bench": []}},
+        }
+        r = api_client.post(f"{API}/matches", json=payload)
+        assert r.status_code == 200
+        created = r.json()
+        code = created["pair_code"]
+        g = api_client.get(f"{API}/matches/by-code/{code}")
+        assert g.status_code == 200, g.text
+        d = g.json()
+        assert d["id"] == created["id"]
+        assert d["home_team"] == "TEST_BC_H"
+        assert d["home_color"] == "#123456"
+        assert d["away_color"] == "#654321"
+        assert d["category"] == "Juvenil"
+        assert d["lineup_enabled"] is True
+        assert d["lineups"] == payload["lineups"]
+        assert d["status"] == "active"
+
+    def test_get_by_code_404_when_missing(self, api_client):
+        # A code guaranteed not to exist (7 chars won't match Any real 6-digit codes)
+        r = api_client.get(f"{API}/matches/by-code/000000000")
+        assert r.status_code == 404
+
+    def test_get_by_code_404_when_finished(self, api_client):
+        r = api_client.post(f"{API}/matches", json={"home_team": "TEST_FIN"})
+        assert r.status_code == 200
+        m = r.json()
+        code = m["pair_code"]
+        # Sanity: active fetch works
+        assert api_client.get(f"{API}/matches/by-code/{code}").status_code == 200
+        # Finish, then by-code should 404
+        f = api_client.post(f"{API}/matches/{m['id']}/finish")
+        assert f.status_code == 200
+        r2 = api_client.get(f"{API}/matches/by-code/{code}")
+        assert r2.status_code == 404
+
+    def test_get_by_code_returns_latest_active(self, api_client):
+        # Create two active matches; if unique code happens to be shared (astronomically unlikely),
+        # the endpoint should return the most recent by created_at.
+        r1 = api_client.post(f"{API}/matches", json={"home_team": "TEST_LATEST_1"})
+        r2 = api_client.post(f"{API}/matches", json={"home_team": "TEST_LATEST_2"})
+        assert r1.status_code == 200 and r2.status_code == 200
+        code2 = r2.json()["pair_code"]
+        g = api_client.get(f"{API}/matches/by-code/{code2}")
+        assert g.status_code == 200
+        assert g.json()["id"] == r2.json()["id"]
+

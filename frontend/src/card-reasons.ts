@@ -15,3 +15,7 @@ export const RED_REASONS: CardReason[] = [
   { code: "CD", label: "Conducta Antideportiva Grave" },
   { code: "INS", label: "Insultos / Ofensas" },
 ];
+
+// Reason codes only (labels via i18n when needed).
+export const YELLOW_CODES = YELLOW_REASONS.map((r) => r.code);
+export const RED_CODES = RED_REASONS.map((r) => r.code);

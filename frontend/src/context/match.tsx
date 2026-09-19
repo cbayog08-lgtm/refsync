@@ -8,8 +8,8 @@ import React, {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { api, CardColor, Team } from "@/src/api";
-import { Category } from "@/src/categories";
+import { api, CardColor, MatchDto, Team } from "@/src/api";
+import { Category, CATEGORIES } from "@/src/categories";
 import { teamName } from "@/src/utils/format";
 
 export type TimerStatus = "stopped" | "running" | "paused";
@@ -29,6 +29,7 @@ export type Lineups = { home: Squad; away: Squad };
 
 export type Draft = {
   category: Category | null;
+  mode: "watch" | "mobile";
   homeName: string;
   awayName: string;
   homeColor: string;
@@ -65,9 +66,11 @@ type MatchContextValue = {
   lineupEnabled: boolean;
   lineups: Lineups;
   announcedAddedMin: number;
+  pairCode: string;
   draft: Draft;
   setDraft: (partial: Partial<Draft>) => void;
   startMatch: (config: StartConfig) => Promise<void>;
+  loadMatch: (dto: MatchDto) => void;
   start: () => void;
   toggle: () => void;
   incAdded: () => void;
@@ -100,8 +103,10 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
   const [lineupEnabled, setLineupEnabled] = useState(false);
   const [lineups, setLineups] = useState<Lineups>(emptyLineups());
   const [announcedAddedMin, setAnnouncedAddedMin] = useState(0);
+  const [pairCode, setPairCode] = useState("");
   const [draftState, setDraftState] = useState<Draft>({
     category: null,
+    mode: "watch",
     homeName: "LOCAL",
     awayName: "VISITANTE",
     homeColor: "#EF4444",
@@ -148,8 +153,11 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
       away_color: config.awayColor,
       category: config.category.label,
       half_duration_min: config.category.halfMin,
+      lineup_enabled: config.lineupEnabled,
+      lineups: config.lineups,
     });
     setMatchId(m.id);
+    setPairCode(m.pair_code);
     setCategory(config.category);
     setHalfDurationMs(config.category.halfMin * 60 * 1000);
     setTeams({
@@ -160,6 +168,36 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
     });
     setLineupEnabled(config.lineupEnabled);
     setLineups(config.lineups);
+    setStatus("stopped");
+    setMainMs(0);
+    setAddedMs(0);
+    setAnnouncedAddedMin(0);
+    windowCountRef.current = { home: 0, away: 0 };
+    openWindowRef.current = { home: false, away: false };
+  }, []);
+
+  const loadMatch = useCallback((dto: MatchDto) => {
+    const cat: Category =
+      CATEGORIES.find((c) => c.label === dto.category) ?? {
+        key: "custom",
+        label: dto.category,
+        halfMin: dto.half_duration_min,
+        maxSubs: null,
+        maxWindows: null,
+      };
+    setMatchId(dto.id);
+    setPairCode(dto.pair_code);
+    setCategory(cat);
+    setHalfDurationMs(dto.half_duration_min * 60 * 1000);
+    setTeams({
+      homeName: dto.home_team,
+      awayName: dto.away_team,
+      homeColor: dto.home_color,
+      awayColor: dto.away_color,
+    });
+    setLineupEnabled(dto.lineup_enabled);
+    const l = dto.lineups as { home?: unknown };
+    setLineups(l && l.home ? (dto.lineups as Lineups) : emptyLineups());
     setStatus("stopped");
     setMainMs(0);
     setAddedMs(0);
@@ -352,9 +390,11 @@ export function MatchProvider({ children }: { children: React.ReactNode }) {
     lineupEnabled,
     lineups,
     announcedAddedMin,
+    pairCode,
     draft: draftState,
     setDraft,
     startMatch,
+    loadMatch,
     start,
     toggle,
     incAdded,

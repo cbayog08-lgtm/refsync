@@ -9,6 +9,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/src/components/error-boundary";
 import { NoticeOverlay } from "@/src/components/notice-overlay";
 import { MatchProvider } from "@/src/context/match";
+import { I18nProvider } from "@/src/i18n";
 import { useAppFonts } from "@/src/fonts";
 import { queryClient } from "@/src/query-client";
 
@@ -26,29 +27,32 @@ export default function RootLayout() {
             <KeyboardProvider>
               <StatusBar style="light" />
               {fontsLoaded ? (
-                <MatchProvider>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      contentStyle: { backgroundColor: "#000000" },
-                    }}
-                  >
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="setup" />
-                    <Stack.Screen name="lineup" />
-                    <Stack.Screen name="match" />
-                    <Stack.Screen name="summary" />
-                    <Stack.Screen name="history" />
-                    <Stack.Screen name="acta/[id]" />
-                    <Stack.Screen name="log/goal" options={{ presentation: "modal" }} />
-                    <Stack.Screen name="log/card" options={{ presentation: "modal" }} />
-                    <Stack.Screen
-                      name="log/substitution"
-                      options={{ presentation: "modal" }}
-                    />
-                  </Stack>
-                  <NoticeOverlay />
-                </MatchProvider>
+                <I18nProvider>
+                  <MatchProvider>
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                        contentStyle: { backgroundColor: "#000000" },
+                      }}
+                    >
+                      <Stack.Screen name="index" />
+                      <Stack.Screen name="categories" />
+                      <Stack.Screen name="setup" />
+                      <Stack.Screen name="lineup" />
+                      <Stack.Screen name="match" />
+                      <Stack.Screen name="summary" />
+                      <Stack.Screen name="history" />
+                      <Stack.Screen name="settings" />
+                      <Stack.Screen name="pair" />
+                      <Stack.Screen name="sync" />
+                      <Stack.Screen name="acta/[id]" />
+                      <Stack.Screen name="log/goal" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="log/card" options={{ presentation: "modal" }} />
+                      <Stack.Screen name="log/substitution" options={{ presentation: "modal" }} />
+                    </Stack>
+                    <NoticeOverlay />
+                  </MatchProvider>
+                </I18nProvider>
               ) : (
                 <View style={{ flex: 1, backgroundColor: "#000000" }} />
               )}

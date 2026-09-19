@@ -78,7 +78,7 @@ export default function SetupScreen() {
       lineupEnabled: false,
       lineups: { home: { onField: [], bench: [] }, away: { onField: [], bench: [] } },
     });
-    router.replace("/match");
+    router.replace(draft.mode === "mobile" ? "/sync" : "/match");
   };
 
   return (
